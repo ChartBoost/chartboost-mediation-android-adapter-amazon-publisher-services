@@ -213,6 +213,9 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
         context: Context,
         request: PreBidRequest
     ): Map<String, String> {
+
+        // TODO: Remove PreBidSettings and move settings to setUp [HB-4223](https://chartboost.atlassian.net/browse/HB-4223)
+
         val placement = request.heliumPlacement
         val pricePoint = SDKUtilities.getPricePoint(placementToAdResponseMap[placement])
 
