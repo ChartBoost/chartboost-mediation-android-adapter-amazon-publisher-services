@@ -5,6 +5,11 @@ import android.view.View
 import com.amazon.device.ads.*
 import com.chartboost.heliumsdk.domain.*
 import com.chartboost.heliumsdk.utils.LogController
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers.IO
+import kotlinx.coroutines.Dispatchers.Main
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentMap
 import kotlin.coroutines.resume
@@ -204,63 +209,70 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
         }
 
         return suspendCoroutine { continuation ->
-            val preBidSettings = placementToPreBidSettings[placement] ?: run {
-                LogController.d("Could not find prebidSettings for this placement.")
-                continuation.resumeWith(
-                    Result.success(
-                        HashMap()
-                    )
-                )
-                return@suspendCoroutine
-            }
-
-            val adRequest = DTBAdRequest()
-            val isVideo = preBidSettings.video
-
-            if (preBidSettings.partnerPlacement.isEmpty()) {
-                continuation.resumeWith(
-                    Result.success(
-                        HashMap()
-                    )
-                )
-            }
-
-            if (isSubjectToCoppa) {
-                continuation.resumeWith(
-                    Result.success(
-                        HashMap()
-                    )
-                )
-            }
-
-            buildAdRequestSize(request.format, adRequest, isVideo, preBidSettings)
-            buildCcpaPrivacy(adRequest, ccpaPrivacyString)
-
-            adRequest.loadAd(object : DTBAdCallback {
-                override fun onFailure(adError: AdError) {
-                    LogController.d(
-                        "Failed to fetch price point for placement " +
-                                "$placement, with error ${adError.code}: ${adError.message}"
-                    )
-
+            CoroutineScope(Main).launch {
+                val preBidSettings = placementToPreBidSettings[placement] ?: run {
+                    LogController.d("Could not find prebidSettings for this placement.")
                     continuation.resumeWith(
                         Result.success(
                             HashMap()
                         )
                     )
+                    return@launch
                 }
 
-                override fun onSuccess(adResponse: DTBAdResponse) {
-                    placementToAdResponseMap[placement] = adResponse
+
+                val adRequest = DTBAdRequest()
+                val isVideo = preBidSettings.video
+
+                if (preBidSettings.partnerPlacement.isEmpty()) {
                     continuation.resumeWith(
                         Result.success(
-                            hashMapOf(
-                                placement to SDKUtilities.getPricePoint(adResponse)
-                            )
+                            HashMap()
                         )
                     )
+                    return@launch
                 }
-            })
+
+                if (isSubjectToCoppa) {
+                    continuation.resumeWith(
+                        Result.success(
+                            HashMap()
+                        )
+                    )
+                    return@launch
+                }
+
+                buildAdRequestSize(request.format, adRequest, isVideo, preBidSettings)
+                buildCcpaPrivacy(adRequest, ccpaPrivacyString)
+
+                withContext(IO) {
+                    adRequest.loadAd(object : DTBAdCallback {
+                        override fun onFailure(adError: AdError) {
+                            LogController.d(
+                                "Failed to fetch price point for placement " +
+                                        "$placement, with error ${adError.code}: ${adError.message}"
+                            )
+
+                            continuation.resumeWith(
+                                Result.success(
+                                    HashMap()
+                                )
+                            )
+                        }
+
+                        override fun onSuccess(adResponse: DTBAdResponse) {
+                            placementToAdResponseMap[placement] = adResponse
+                            continuation.resumeWith(
+                                Result.success(
+                                    hashMapOf(
+                                        placement to SDKUtilities.getPricePoint(adResponse)
+                                    )
+                                )
+                            )
+                        }
+                    })
+                }
+            }
         }
     }
 
@@ -374,7 +386,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
     ): DTBAdRequest {
         return adRequest.apply {
             ccpaPrivacyString?.let {
-                putCustomTarget(CCPA_PRIVACY_KEY, ccpaPrivacyString)
+                putCustomTarget(CCPA_PRIVACY_KEY, it)
             }
         }
     }
@@ -398,90 +410,69 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
             ?: return Result.failure(HeliumAdException(HeliumErrorCode.NO_FILL))
 
         return suspendCoroutine { continuation ->
-            DTBAdView(context, object : DTBAdBannerListener {
-                override fun onAdLoaded(adView: View?) {
-                    adView?.let {
+            CoroutineScope(Main).launch {
+                DTBAdView(context, object : DTBAdBannerListener {
+                    override fun onAdLoaded(adView: View?) {
                         continuation.resume(
                             Result.success(
                                 PartnerAd(
-                                    ad = it,
+                                    ad = adView,
                                     details = emptyMap(),
                                     request = request
                                 )
                             )
                         )
-                    } ?: run {
-                        LogController.d("$TAG Failed to fire onAdLoaded. Ad is null")
-                        continuation.resume(
-                            Result.failure(HeliumAdException(HeliumErrorCode.NO_FILL))
+                    }
+
+                    override fun onAdFailed(adView: View?) {
+                        LogController.d("$TAG Failed to load Amazon Publisher Services banner ad.")
+                        continuation.resumeWith(
+                            Result.failure(
+                                HeliumAdException(HeliumErrorCode.PARTNER_ERROR)
+                            )
                         )
                     }
-                }
 
-                override fun onAdFailed(adView: View?) {
-                    LogController.d("$TAG Failed to load Amazon Publisher Services banner ad.")
-                    continuation.resumeWith(
-                        Result.failure(
-                            HeliumAdException(HeliumErrorCode.PARTNER_ERROR)
-                        )
-                    )
-                }
-
-                override fun onAdClicked(adView: View?) {
-                    adView?.let {
+                    override fun onAdClicked(adView: View?) {
                         partnerAdListener.onPartnerAdClicked(
                             PartnerAd(
-                                ad = it,
+                                ad = adView,
                                 details = mapOf(),
                                 request = request
                             )
                         )
-                    } ?: LogController.d(
-                        "$TAG Unable to fire onPartnerAdClicked for APS adapter. Ad is null."
-                    )
+                    }
 
-                    continuation.resume(Result.success((PartnerAd(adView, mapOf(), request))))
-                }
+                    override fun onAdLeftApplication(adView: View?) {
+                        // NO-OP
+                    }
 
-                override fun onAdLeftApplication(adView: View?) {
-                    // NO-OP
-                }
+                    override fun onAdOpen(adView: View?) {
+                        // NO-OP
+                    }
 
-                override fun onAdOpen(adView: View?) {
-                    // NO-OP
-                }
-
-                override fun onAdClosed(adView: View?) {
-                    adView?.let {
+                    override fun onAdClosed(adView: View?) {
                         partnerAdListener.onPartnerAdDismissed(
                             PartnerAd(
-                                ad = it,
+                                ad = adView,
                                 details = mapOf(),
                                 request = request
                             ),
                             null
                         )
-                    } ?: LogController.d(
-                        "$TAG Unable to fire onPartnerAdDismissed for APS adapter. Ad is null."
-                    )
-                    continuation.resume(Result.success((PartnerAd(adView, mapOf(), request))))
-                }
+                    }
 
-                override fun onImpressionFired(adView: View?) {
-                    adView?.let {
+                    override fun onImpressionFired(adView: View?) {
                         partnerAdListener.onPartnerAdImpression(
                             PartnerAd(
-                                ad = it,
+                                ad = adView,
                                 details = mapOf(),
                                 request = request
                             )
                         )
-                    } ?: LogController.d(
-                        "$TAG Unable to fire onPartnerAdImpression for APS adapter. Ad is null."
-                    )
-                    continuation.resume(Result.success((PartnerAd(adView, mapOf(), request))))
-                }
-            }).fetchAd(SDKUtilities.getBidInfo(adResponse))
+                    }
+                }).fetchAd(SDKUtilities.getBidInfo(adResponse))
+            }
         }
     }
 
@@ -505,25 +496,19 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
         return suspendCoroutine { continuation ->
             DTBAdInterstitial(context, object : DTBAdInterstitialListener {
                 override fun onAdLoaded(adView: View?) {
-                    adView?.let {
-                        continuation.resume(
-                            Result.success(
-                                PartnerAd(
-                                    ad = it,
-                                    details = emptyMap(),
-                                    request = request
-                                )
+                    continuation.resume(
+                        Result.success(
+                            PartnerAd(
+                                ad = adView,
+                                details = emptyMap(),
+                                request = request
                             )
-                        )
-                    } ?: continuation.resume(
-                        Result.failure(
-                            HeliumAdException(HeliumErrorCode.NO_FILL)
                         )
                     )
                 }
 
                 override fun onAdFailed(adView: View?) {
-                    LogController.d("$TAG Failed to fire onAdLoaded. Ad is null.")
+                    LogController.d("$TAG Failed to load Amazon Publisher Services interstitial ad.")
                     continuation.resumeWith(
                         Result.failure(
                             HeliumAdException(HeliumErrorCode.PARTNER_ERROR)
@@ -532,18 +517,13 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                 }
 
                 override fun onAdClicked(adView: View?) {
-                    adView?.let {
-                        partnerAdListener.onPartnerAdClicked(
-                            PartnerAd(
-                                ad = it,
-                                details = mapOf(),
-                                request = request
-                            )
+                    partnerAdListener.onPartnerAdClicked(
+                        PartnerAd(
+                            ad = adView,
+                            details = mapOf(),
+                            request = request
                         )
-                    } ?: LogController.d(
-                        "$TAG Unable to fire onPartnerAdClicked for APS adapter. Ad is null."
                     )
-                    continuation.resume(Result.success((PartnerAd(adView, mapOf(), request))))
                 }
 
                 override fun onAdLeftApplication(adView: View?) {
@@ -555,34 +535,24 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                 }
 
                 override fun onAdClosed(adView: View?) {
-                    adView?.let {
-                        partnerAdListener.onPartnerAdDismissed(
-                            PartnerAd(
-                                ad = it,
-                                details = mapOf(),
-                                request = request
-                            ),
-                            null
-                        )
-                    } ?: LogController.d(
-                        "$TAG Unable to fire onPartnerAdDismissed for APS adapter. Ad is null."
+                    partnerAdListener.onPartnerAdDismissed(
+                        PartnerAd(
+                            ad = adView,
+                            details = mapOf(),
+                            request = request
+                        ),
+                        null
                     )
-                    continuation.resume(Result.success((PartnerAd(adView, mapOf(), request))))
                 }
 
                 override fun onImpressionFired(adView: View?) {
-                    adView?.let {
-                        partnerAdListener.onPartnerAdImpression(
-                            PartnerAd(
-                                ad = it,
-                                details = mapOf(),
-                                request = request
-                            )
+                    partnerAdListener.onPartnerAdImpression(
+                        PartnerAd(
+                            ad = adView,
+                            details = mapOf(),
+                            request = request
                         )
-                    } ?: LogController.d(
-                        "$TAG Unable to fire onPartnerAdImpression for APS adapter. Ad is null."
                     )
-                    continuation.resume(Result.success((PartnerAd(adView, mapOf(), request))))
                 }
 
             }).fetchAd(SDKUtilities.getBidInfo(adResponse))
