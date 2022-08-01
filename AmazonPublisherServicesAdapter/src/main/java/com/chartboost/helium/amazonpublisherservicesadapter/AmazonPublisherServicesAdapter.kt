@@ -3,38 +3,22 @@ package com.chartboost.helium.amazonpublisherservicesadapter
 import android.content.Context
 import android.view.View
 import com.amazon.device.ads.*
-import com.chartboost.helium.amazonpublisherservicesadapter.BuildConfig.VERSION_NAME
 import com.chartboost.heliumsdk.domain.*
 import com.chartboost.heliumsdk.utils.LogController
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers.IO
-import kotlinx.coroutines.Dispatchers.Main
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentMap
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 
 /**
- * The Helium Amazon Publisher Services (APS) SDK adapter.
+ * The Helium Amazon Publisher Services (APS) adapter.
  */
 class AmazonPublisherServicesAdapter : PartnerAdapter {
     companion object {
         /**
          * The tag used for log messages.
          */
-        private const val TAG = "[AmazonPublisherServicesAdapter]"
-
-        /**
-         * Indicate that the user has given CCPA consent.
-         */
-        private const val CCPA_HAS_GIVEN_CONSENT = "1YN-"
-
-        /**
-         * Indicate that the user has not given CCPA consent.
-         */
-        private const val CCPA_HAS_NOT_GIVEN_CONSENT = "1YY-"
+        private val TAG = "[${this::class.java.simpleName}]"
 
         /**
          * Key for setting the CCPA privacy.
@@ -44,20 +28,13 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
         /**
          * Key for parsing the APS SDK application ID.
          */
-        private const val APS_APPLICATION_ID = "application_id"
+        private const val APS_APPLICATION_ID_KEY = "application_id"
 
         /**
          * String Helium placement name to the APS prebid. This is synchronized via ConcurrentHashMap.
          */
         private val placementToAdResponseMap: ConcurrentMap<String, DTBAdResponse?> =
             ConcurrentHashMap()
-
-        /**
-         * String Helium placement name to the underlying ad. This is not synchronized.
-         * Only access this from the main thread.
-         */
-        private val placementToInterstitialMap: MutableMap<String, DTBAdInterstitial> =
-            mutableMapOf()
 
         /**
          * Stores the pre bid settings so we can make a pre bid once the previous one has been consumed.
@@ -74,7 +51,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
     /**
      * Indicate whether the user has given CCPA consent.
      */
-    private var hasGivenCcpaConsent: Boolean? = null
+    private var ccpaPrivacyString: String? = null
 
     /**
      * Indicate whether COPPA currently applies to the user.
@@ -95,7 +72,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
      * of the partner SDK, and `Adapter` is the version of the adapter.
      */
     override val adapterVersion: String
-        get() = VERSION_NAME
+        get() = BuildConfig.HELIUM_APS_ADAPTER_VERSION
 
     /**
      * Get the partner name for internal uses.
@@ -121,31 +98,26 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
         context: Context,
         partnerConfiguration: PartnerConfiguration
     ): Result<Unit> {
-        return suspendCoroutine { continuation ->
-            try {
-                partnerConfiguration.credentials[APS_APPLICATION_ID]?.let { application_id ->
+        return try {
+            partnerConfiguration.credentials[APS_APPLICATION_ID_KEY]?.let { appKey ->
 
-                    AdRegistration.getInstance(application_id, context)
+                AdRegistration.getInstance(appKey, context)
 
-                    AdRegistration.setAdNetworkInfo(DTBAdNetworkInfo(DTBAdNetwork.OTHER))
-                    AdRegistration.setMRAIDSupportedVersions(arrayOf("1.0", "2.0", "3.0"))
-                    AdRegistration.setMRAIDPolicy(MRAIDPolicy.CUSTOM)
+                AdRegistration.setAdNetworkInfo(DTBAdNetworkInfo(DTBAdNetwork.OTHER))
+                AdRegistration.setMRAIDSupportedVersions(arrayOf("1.0", "2.0", "3.0"))
+                AdRegistration.setMRAIDPolicy(MRAIDPolicy.CUSTOM)
 
-                    AdRegistration.enableLogging(true, DTBLogLevel.All)
+                // TODO: Remove once pipes have proven to function.
+                AdRegistration.enableLogging(true, DTBLogLevel.All)
 
-                    continuation.resume(
-                        Result.success(
-                            LogController.i("$TAG APS SDK successfully initialized.")
-                        )
-                    )
-
-                } ?: run {
-                    LogController.e("Failed to initialize APS SDK.")
-                    continuation.resume(Result.failure(HeliumAdException(HeliumErrorCode.PARTNER_SDK_NOT_INITIALIZED)))
-                }
-            } catch (illegalArgumentException: IllegalArgumentException) {
-                continuation.resume(Result.failure(HeliumAdException(HeliumErrorCode.PARTNER_SDK_NOT_INITIALIZED)))
+                Result.success(LogController.i("$TAG APS SDK successfully initialized."))
+            } ?: run {
+                LogController.e("$TAG Failed to initialize APS SDK: Missing application ID.")
+                Result.failure(HeliumAdException(HeliumErrorCode.PARTNER_SDK_NOT_INITIALIZED))
             }
+        } catch (illegalArgumentException: IllegalArgumentException) {
+            LogController.e("$TAG Failed to initialize APS SDK: Illegal Argument Exception. ${illegalArgumentException.message}")
+            Result.failure(HeliumAdException(HeliumErrorCode.PARTNER_SDK_NOT_INITIALIZED))
         }
     }
 
@@ -168,11 +140,19 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
      */
     override fun setGdprConsentStatus(context: Context, gdprConsentStatus: GdprConsentStatus) {
         if (isSubjectToGdpr) {
-            if (GdprConsentStatus.GDPR_CONSENT_GRANTED == gdprConsentStatus) {
-                AdRegistration.setConsentStatus(AdRegistration.ConsentStatus.EXPLICIT_YES)
-            } else {
-                AdRegistration.setConsentStatus(AdRegistration.ConsentStatus.EXPLICIT_NO)
+            when (gdprConsentStatus) {
+                GdprConsentStatus.GDPR_CONSENT_GRANTED -> AdRegistration.setConsentStatus(
+                    AdRegistration.ConsentStatus.EXPLICIT_YES
+                )
+                GdprConsentStatus.GDPR_CONSENT_DENIED -> AdRegistration.setConsentStatus(
+                    AdRegistration.ConsentStatus.EXPLICIT_NO
+                )
+                GdprConsentStatus.GDPR_CONSENT_UNKNOWN -> AdRegistration.setConsentStatus(
+                    AdRegistration.ConsentStatus.UNKNOWN
+                )
             }
+        } else {
+            AdRegistration.setConsentStatus(AdRegistration.ConsentStatus.CONSENT_NOT_DEFINED)
         }
     }
 
@@ -188,7 +168,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
         hasGivenCcpaConsent: Boolean,
         privacyString: String?
     ) {
-        this.hasGivenCcpaConsent = hasGivenCcpaConsent
+        ccpaPrivacyString = privacyString
     }
 
     /**
@@ -224,100 +204,95 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
         }
 
         return suspendCoroutine { continuation ->
-            CoroutineScope(Main).launch {
-                val preBidSettings = placementToPreBidSettings[request.heliumPlacement] ?: run {
+            val preBidSettings = placementToPreBidSettings[placement] ?: run {
+                LogController.d("Could not find prebidSettings for this placement.")
+                continuation.resumeWith(
+                    Result.success(
+                        HashMap()
+                    )
+                )
+                return@suspendCoroutine
+            }
+
+            val adRequest = DTBAdRequest()
+            val isVideo = preBidSettings.video
+
+            if (preBidSettings.partnerPlacement.isEmpty()) {
+                continuation.resumeWith(
+                    Result.success(
+                        HashMap()
+                    )
+                )
+            }
+
+            if (isSubjectToCoppa) {
+                continuation.resumeWith(
+                    Result.success(
+                        HashMap()
+                    )
+                )
+            }
+
+            buildAdRequestSize(request.format, adRequest, isVideo, preBidSettings)
+            buildCcpaPrivacy(adRequest, ccpaPrivacyString)
+
+            adRequest.loadAd(object : DTBAdCallback {
+                override fun onFailure(adError: AdError) {
+                    LogController.d(
+                        "Failed to fetch price point for placement " +
+                                "$placement, with error ${adError.code}: ${adError.message}"
+                    )
+
                     continuation.resumeWith(
                         Result.success(
                             HashMap()
                         )
                     )
-                    return@launch
                 }
 
-                val adRequest = DTBAdRequest()
-                val isVideo = preBidSettings.video
-
-                if (preBidSettings.partnerPlacement.isEmpty()) {
+                override fun onSuccess(adResponse: DTBAdResponse) {
+                    placementToAdResponseMap[placement] = adResponse
                     continuation.resumeWith(
                         Result.success(
-                            HashMap()
+                            hashMapOf(
+                                placement to SDKUtilities.getPricePoint(adResponse)
+                            )
                         )
                     )
-                    return@launch
                 }
+            })
+        }
+    }
 
-                if (isSubjectToCoppa) {
-                    continuation.resumeWith(
-                        Result.success(
-                            HashMap()
-                        )
-                    )
-                    return@launch
-                }
-
-                if (AdFormat.INTERSTITIAL == request.format) {
-                    adRequest.setSizes(
-                        if (isVideo) (DTBAdSize.DTBVideo(
-                            preBidSettings.width,
-                            preBidSettings.height,
-                            preBidSettings.partnerPlacement
-                        ))
-                        else (DTBAdSize.DTBInterstitialAdSize(preBidSettings.partnerPlacement))
-                    )
-                } else {
-                    adRequest.setSizes(
-                        if (isVideo) (DTBAdSize.DTBVideo(
-                            preBidSettings.width,
-                            preBidSettings.height,
-                            preBidSettings.partnerPlacement
-                        )) else (DTBAdSize(
-                            preBidSettings.width,
-                            preBidSettings.height,
-                            preBidSettings.partnerPlacement
-                        ))
-                    )
-                }
-
-                when (hasGivenCcpaConsent) {
-                    true -> adRequest.putCustomTarget(
-                        CCPA_PRIVACY_KEY,
-                        CCPA_HAS_GIVEN_CONSENT
-                    )
-                    false -> adRequest.putCustomTarget(
-                        CCPA_PRIVACY_KEY,
-                        CCPA_HAS_NOT_GIVEN_CONSENT
-                    )
-                    null -> {}
-                }
-
-                withContext(IO) {
-                    adRequest.loadAd(object : DTBAdCallback {
-                        override fun onFailure(adError: AdError) {
-                            LogController.d(
-                                "Failed to fetch price point for placement " +
-                                        "$placement, with error ${adError.code}: ${adError.message}"
-                            )
-
-                            placementToAdResponseMap.remove(placement)
-                            continuation.resumeWith(
-                                Result.success(
-                                    HashMap()
-                                )
-                            )
-                        }
-
-                        override fun onSuccess(adResponse: DTBAdResponse) {
-                            placementToAdResponseMap[placement] = adResponse
-                            continuation.resumeWith(
-                                Result.success(
-                                    hashMapOf(
-                                        placement to SDKUtilities.getPricePoint(adResponse)
-                                    )
-                                )
-                            )
-                        }
-                    })
-                }
+    private fun buildAdRequestSize(
+        format: AdFormat,
+        adRequest: DTBAdRequest,
+        isVideo: Boolean,
+        preBidSettings: PreBidSettings
+    ) {
+        return when (format) {
+            AdFormat.INTERSTITIAL -> {
+                adRequest.setSizes(
+                    if (isVideo) (DTBAdSize.DTBVideo(
+                        preBidSettings.width,
+                        preBidSettings.height,
+                        preBidSettings.partnerPlacement
+                    ))
+                    else (DTBAdSize.DTBInterstitialAdSize(preBidSettings.partnerPlacement))
+                )
+            }
+            else -> {
+                adRequest.setSizes(
+                    if (isVideo) (DTBAdSize.DTBVideo(
+                        preBidSettings.width,
+                        preBidSettings.height,
+                        preBidSettings.partnerPlacement
+                    )) else (DTBAdSize(
+                        preBidSettings.width,
+                        preBidSettings.height,
+                        preBidSettings.partnerPlacement
+                    ))
+                )
             }
         }
     }
@@ -337,13 +312,13 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
         partnerAdListener: PartnerAdListener
     ): Result<PartnerAd> {
         if (isSubjectToCoppa) {
-            LogController.d("No interstitial pre bid. Failing load.")
+            LogController.d("$TAG User subject to COPPA. Failing load.")
             return Result.failure(HeliumAdException(HeliumErrorCode.NO_FILL))
         }
 
         return when (request.format) {
-            AdFormat.BANNER -> loadBanner(context, request, partnerAdListener)
-            AdFormat.INTERSTITIAL -> loadInterstitial(context, request, partnerAdListener)
+            AdFormat.BANNER -> loadBannerAd(context, request, partnerAdListener)
+            AdFormat.INTERSTITIAL -> loadInterstitialAd(context, request, partnerAdListener)
             AdFormat.REWARDED -> return Result.failure(HeliumAdException(HeliumErrorCode.AD_FORMAT_NOT_SUPPORTED))
         }
     }
@@ -358,12 +333,15 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
      */
     override suspend fun show(context: Context, partnerAd: PartnerAd): Result<PartnerAd> {
         if (isSubjectToCoppa) {
-            LogController.d("$TAG User subject to COPPA. Failing all actions.")
+            LogController.d("$TAG User subject to COPPA. Failing all show.")
             return Result.failure(HeliumAdException(HeliumErrorCode.PARTNER_ERROR))
         }
 
         return when (partnerAd.request.format) {
-            AdFormat.BANNER -> Result.success(partnerAd)
+            AdFormat.BANNER -> {
+                // Banner ads do not have a separate "show" mechanism.
+                Result.success(partnerAd)
+            }
             AdFormat.INTERSTITIAL -> showInterstitialAd(partnerAd)
             AdFormat.REWARDED -> Result.failure(HeliumAdException(HeliumErrorCode.AD_FORMAT_NOT_SUPPORTED))
         }
@@ -379,8 +357,25 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
     override suspend fun invalidate(partnerAd: PartnerAd): Result<PartnerAd> {
         return when (partnerAd.request.format) {
             AdFormat.BANNER -> destroyBannerAd(partnerAd)
-            AdFormat.INTERSTITIAL -> removeCachedInterstitialAd(partnerAd)
             else -> Result.success(partnerAd)
+        }
+    }
+
+
+    /**
+     * Attaches the CCPA privacy setting to the APS request.
+     *
+     * @param adRequest A [DTBAdRequest] to set the privacy setting for the current DTBAdRequest.
+     * @param ccpaPrivacyString the privacy string that will be set for the current DTBadRequest.
+     */
+    private fun buildCcpaPrivacy(
+        adRequest: DTBAdRequest,
+        ccpaPrivacyString: String?
+    ): DTBAdRequest {
+        return adRequest.apply {
+            ccpaPrivacyString?.let {
+                putCustomTarget(CCPA_PRIVACY_KEY, ccpaPrivacyString)
+            }
         }
     }
 
@@ -393,12 +388,12 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
      *
      * @return Result.success(PartnerAd) if the ad was successfully loaded, Result.failure(Exception) otherwise.
      */
-    private suspend fun loadBanner(
+    private suspend fun loadBannerAd(
         context: Context,
         request: AdLoadRequest,
         partnerAdListener: PartnerAdListener
     ): Result<PartnerAd> {
-        val placementName = request.partnerPlacement
+        val placementName = request.heliumPlacement
         val adResponse = placementToAdResponseMap.remove(placementName)
             ?: return Result.failure(HeliumAdException(HeliumErrorCode.NO_FILL))
 
@@ -415,15 +410,16 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                                 )
                             )
                         )
-                    } ?: continuation.resume(
-                        Result.failure(
-                            HeliumAdException(HeliumErrorCode.NO_FILL)
+                    } ?: run {
+                        LogController.d("$TAG Failed to fire onAdLoaded. Ad is null")
+                        continuation.resume(
+                            Result.failure(HeliumAdException(HeliumErrorCode.NO_FILL))
                         )
-                    )
+                    }
                 }
 
                 override fun onAdFailed(adView: View?) {
-                    LogController.d("$TAG banner onAdFailed")
+                    LogController.d("$TAG Failed to load Amazon Publisher Services banner ad.")
                     continuation.resumeWith(
                         Result.failure(
                             HeliumAdException(HeliumErrorCode.PARTNER_ERROR)
@@ -441,8 +437,10 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                             )
                         )
                     } ?: LogController.d(
-                        "$TAG Unable to fire onPartnerAdClicked for APS adapter. Ad is null"
+                        "$TAG Unable to fire onPartnerAdClicked for APS adapter. Ad is null."
                     )
+
+                    continuation.resume(Result.success((PartnerAd(adView, mapOf(), request))))
                 }
 
                 override fun onAdLeftApplication(adView: View?) {
@@ -464,8 +462,9 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                             null
                         )
                     } ?: LogController.d(
-                        "$TAG Unable to fire onPartnerAdDismissed for APS adapter. Ad is null"
+                        "$TAG Unable to fire onPartnerAdDismissed for APS adapter. Ad is null."
                     )
+                    continuation.resume(Result.success((PartnerAd(adView, mapOf(), request))))
                 }
 
                 override fun onImpressionFired(adView: View?) {
@@ -478,12 +477,11 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                             )
                         )
                     } ?: LogController.d(
-                        "$TAG Unable to fire onPartnerAdImpression for APS adapter. Ad is null"
+                        "$TAG Unable to fire onPartnerAdImpression for APS adapter. Ad is null."
                     )
+                    continuation.resume(Result.success((PartnerAd(adView, mapOf(), request))))
                 }
-            }).also {
-                it.fetchAd(SDKUtilities.getBidInfo(adResponse))
-            }
+            }).fetchAd(SDKUtilities.getBidInfo(adResponse))
         }
     }
 
@@ -495,99 +493,99 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
      *
      * @return Result.success(PartnerAd) if the ad was successfully loaded, Result.failure(Exception) otherwise.
      */
-    private suspend fun loadInterstitial(
+    private suspend fun loadInterstitialAd(
         context: Context,
         request: AdLoadRequest,
         partnerAdListener: PartnerAdListener
     ): Result<PartnerAd> {
-        val placementName = request.partnerPlacement
+        val placementName = request.heliumPlacement
         val adResponse = placementToAdResponseMap.remove(placementName)
             ?: return Result.failure(HeliumAdException(HeliumErrorCode.NO_FILL))
 
         return suspendCoroutine { continuation ->
-            placementToInterstitialMap[placementName] =
-                DTBAdInterstitial(context, object : DTBAdInterstitialListener {
-                    override fun onAdLoaded(adView: View?) {
-                        placementToInterstitialMap[placementName]?.let {
-                            continuation.resume(
-                                Result.success(
-                                    PartnerAd(
-                                        ad = adView,
-                                        details = emptyMap(),
-                                        request = request
-                                    )
-                                )
-                            )
-                        } ?: continuation.resume(
-                            Result.failure(
-                                HeliumAdException(HeliumErrorCode.NO_FILL)
-                            )
-                        )
-                    }
-
-                    override fun onAdFailed(adView: View?) {
-                        LogController.d("$TAG interstitial onAdFailed")
-                        continuation.resumeWith(
-                            Result.failure(
-                                HeliumAdException(HeliumErrorCode.PARTNER_ERROR)
-                            )
-                        )
-                    }
-
-                    override fun onAdClicked(adView: View?) {
-                        adView?.let {
-                            partnerAdListener.onPartnerAdClicked(
+            DTBAdInterstitial(context, object : DTBAdInterstitialListener {
+                override fun onAdLoaded(adView: View?) {
+                    adView?.let {
+                        continuation.resume(
+                            Result.success(
                                 PartnerAd(
                                     ad = it,
-                                    details = mapOf(),
+                                    details = emptyMap(),
                                     request = request
                                 )
                             )
-                        } ?: LogController.d(
-                            "$TAG Unable to fire onPartnerAdClicked for APS adapter. Ad is null"
                         )
-                    }
-
-                    override fun onAdLeftApplication(adView: View?) {
-                        // NO-OP
-                    }
-
-                    override fun onAdOpen(adView: View?) {
-                        // NO-OP
-                    }
-
-                    override fun onAdClosed(adView: View?) {
-                        adView?.let {
-                            partnerAdListener.onPartnerAdDismissed(
-                                PartnerAd(
-                                    ad = it,
-                                    details = mapOf(),
-                                    request = request
-                                ),
-                                null
-                            )
-                        } ?: LogController.d(
-                            "$TAG Unable to fire onPartnerAdDismissed for APS adapter. Ad is null"
+                    } ?: continuation.resume(
+                        Result.failure(
+                            HeliumAdException(HeliumErrorCode.NO_FILL)
                         )
-                    }
-
-                    override fun onImpressionFired(adView: View?) {
-                        adView?.let {
-                            partnerAdListener.onPartnerAdImpression(
-                                PartnerAd(
-                                    ad = it,
-                                    details = mapOf(),
-                                    request = request
-                                )
-                            )
-                        } ?: LogController.d(
-                            "$TAG Unable to fire onPartnerAdImpression for APS adapter. Ad is null"
-                        )
-                    }
-
-                }).also {
-                    it.fetchAd(SDKUtilities.getBidInfo(adResponse))
+                    )
                 }
+
+                override fun onAdFailed(adView: View?) {
+                    LogController.d("$TAG Failed to fire onAdLoaded. Ad is null.")
+                    continuation.resumeWith(
+                        Result.failure(
+                            HeliumAdException(HeliumErrorCode.PARTNER_ERROR)
+                        )
+                    )
+                }
+
+                override fun onAdClicked(adView: View?) {
+                    adView?.let {
+                        partnerAdListener.onPartnerAdClicked(
+                            PartnerAd(
+                                ad = it,
+                                details = mapOf(),
+                                request = request
+                            )
+                        )
+                    } ?: LogController.d(
+                        "$TAG Unable to fire onPartnerAdClicked for APS adapter. Ad is null."
+                    )
+                    continuation.resume(Result.success((PartnerAd(adView, mapOf(), request))))
+                }
+
+                override fun onAdLeftApplication(adView: View?) {
+                    // NO-OP
+                }
+
+                override fun onAdOpen(adView: View?) {
+                    // NO-OP
+                }
+
+                override fun onAdClosed(adView: View?) {
+                    adView?.let {
+                        partnerAdListener.onPartnerAdDismissed(
+                            PartnerAd(
+                                ad = it,
+                                details = mapOf(),
+                                request = request
+                            ),
+                            null
+                        )
+                    } ?: LogController.d(
+                        "$TAG Unable to fire onPartnerAdDismissed for APS adapter. Ad is null."
+                    )
+                    continuation.resume(Result.success((PartnerAd(adView, mapOf(), request))))
+                }
+
+                override fun onImpressionFired(adView: View?) {
+                    adView?.let {
+                        partnerAdListener.onPartnerAdImpression(
+                            PartnerAd(
+                                ad = it,
+                                details = mapOf(),
+                                request = request
+                            )
+                        )
+                    } ?: LogController.d(
+                        "$TAG Unable to fire onPartnerAdImpression for APS adapter. Ad is null."
+                    )
+                    continuation.resume(Result.success((PartnerAd(adView, mapOf(), request))))
+                }
+
+            }).fetchAd(SDKUtilities.getBidInfo(adResponse))
         }
     }
 
@@ -598,40 +596,9 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
      *
      * @return Result.success(PartnerAd) if the ad was successfully shown, Result.failure(Exception) otherwise.
      */
-    private suspend fun showInterstitialAd(partnerAd: PartnerAd): Result<PartnerAd> {
-        (partnerAd.ad as DTBAdInterstitial).let {
-            removeCachedInterstitialAd(partnerAd)
-            it.show()
-        }
+    private fun showInterstitialAd(partnerAd: PartnerAd): Result<PartnerAd> {
+        (partnerAd.ad as DTBAdInterstitial).show()
         return Result.success(partnerAd)
-    }
-
-    /**
-     * Removed an already cached APS interstitial ad.
-     *
-     * @param partnerAd The [PartnerAd] object containing the APS ad to be removed.
-     *
-     * @return Result.success(PartnerAd)
-     */
-    private suspend fun removeCachedInterstitialAd(partnerAd: PartnerAd): Result<PartnerAd> {
-        return suspendCoroutine { continuation ->
-            partnerAd.ad?.let {
-                CoroutineScope(Main).launch {
-                    val iterator = placementToInterstitialMap.iterator()
-                    while (iterator.hasNext()) {
-                        if (iterator.next().value == it) {
-                            iterator.remove()
-                            continuation.resume(
-                                Result.success(partnerAd)
-                            )
-                        }
-                    }
-                }
-            }
-        } ?: run {
-            LogController.w("$TAG Failed to remove APS interstitial ad. Ad is null.")
-            Result.failure(HeliumAdException(HeliumErrorCode.INTERNAL))
-        }
     }
 
     /**
@@ -647,7 +614,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                 it.destroy()
                 Result.success(partnerAd)
             } else {
-                LogController.w("$TAG Failed to destroy APS banner ad. Ad is not an AppLovinAdView.")
+                LogController.w("$TAG Failed to destroy APS banner ad. Ad is not a DTBAdView.")
                 Result.failure(HeliumAdException(HeliumErrorCode.INTERNAL))
             }
         } ?: run {
