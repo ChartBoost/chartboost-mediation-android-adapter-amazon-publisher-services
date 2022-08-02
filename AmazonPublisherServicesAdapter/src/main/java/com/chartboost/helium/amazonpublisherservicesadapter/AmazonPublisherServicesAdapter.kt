@@ -201,10 +201,11 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
         // TODO: Remove PreBidSettings and move settings to setUp [HB-4223](https://chartboost.atlassian.net/browse/HB-4223)
 
         val placement = request.heliumPlacement
-        val pricePoint = SDKUtilities.getPricePoint(placementToAdResponseMap[placement])
 
-        if (pricePoint.isNotEmpty()) {
-            return hashMapOf(placement to pricePoint)
+        SDKUtilities.getPricePoint(placementToAdResponseMap[placement])?.let{
+            if (it.isNotEmpty()) {
+                return hashMapOf(placement to it)
+            }
         }
 
         val preBidSettings = withContext(Main) {
@@ -260,19 +261,17 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                 }
 
                 override fun onSuccess(adResponse: DTBAdResponse) {
-                    adResponse.let {
-                        CoroutineScope(Main).launch {
-                            placementToAdResponseMap[placement] = adResponse
-                        }
+                    CoroutineScope(Main).launch {
+                        placementToAdResponseMap[placement] = adResponse
+                    }
 
-                        continuation.resumeWith(
-                            Result.success(
-                                hashMapOf(
-                                    placement to SDKUtilities.getPricePoint(adResponse)
-                                )
+                    continuation.resumeWith(
+                        Result.success(
+                            hashMapOf(
+                                placement to SDKUtilities.getPricePoint(adResponse)
                             )
                         )
-                    }
+                    )
                 }
             })
         }
