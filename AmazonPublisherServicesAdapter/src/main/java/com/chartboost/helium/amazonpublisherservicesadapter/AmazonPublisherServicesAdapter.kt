@@ -211,7 +211,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
         val preBidSettings = withContext(Main) {
             placementToPreBidSettings[placement]
         } ?: run {
-            LogController.d("Could not find prebidSettings for this placement.")
+            LogController.d("$TAG Could not find prebidSettings for this placement.")
             return HashMap()
         }
 
@@ -245,11 +245,11 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
             adRequest.loadAd(object : DTBAdCallback {
                 override fun onFailure(adError: AdError) {
                     LogController.d(
-                        "Failed to fetch price point for placement " +
+                        "$TAG Failed to fetch price point for placement " +
                                 "$placement, with error ${adError.code}: ${adError.message}"
                     )
 
-                    CoroutineScope(Main).launch {
+                    CoroutineScope(Main.immediate).launch {
                         placementToAdResponseMap.remove(placement)
                     }
 
@@ -261,7 +261,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                 }
 
                 override fun onSuccess(adResponse: DTBAdResponse) {
-                    CoroutineScope(Main).launch {
+                    CoroutineScope(Main.immediate).launch {
                         placementToAdResponseMap[placement] = adResponse
                     }
 
@@ -438,7 +438,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                     partnerAdListener.onPartnerAdClicked(
                         PartnerAd(
                             ad = adView,
-                            details = mapOf(),
+                            details = emptyMap(),
                             request = request
                         )
                     )
@@ -456,7 +456,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                     partnerAdListener.onPartnerAdDismissed(
                         PartnerAd(
                             ad = adView,
-                            details = mapOf(),
+                            details = emptyMap(),
                             request = request
                         ),
                         null
@@ -467,7 +467,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                     partnerAdListener.onPartnerAdImpression(
                         PartnerAd(
                             ad = adView,
-                            details = mapOf(),
+                            details = emptyMap(),
                             request = request
                         )
                     )
@@ -520,7 +520,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                     partnerAdListener.onPartnerAdClicked(
                         PartnerAd(
                             ad = adView,
-                            details = mapOf(),
+                            details = emptyMap(),
                             request = request
                         )
                     )
@@ -538,7 +538,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                     partnerAdListener.onPartnerAdDismissed(
                         PartnerAd(
                             ad = adView,
-                            details = mapOf(),
+                            details = emptyMap(),
                             request = request
                         ),
                         null
@@ -549,7 +549,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                     partnerAdListener.onPartnerAdImpression(
                         PartnerAd(
                             ad = adView,
-                            details = mapOf(),
+                            details = emptyMap(),
                             request = request
                         )
                     )
