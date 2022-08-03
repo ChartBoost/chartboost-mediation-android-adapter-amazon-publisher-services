@@ -9,8 +9,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers.Main
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.ConcurrentMap
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 
@@ -35,10 +33,10 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
         private const val APS_APPLICATION_ID_KEY = "application_id"
 
         /**
-         * String Helium placement name to the APS prebid. This is synchronized via ConcurrentHashMap.
+         * String Helium placement name to the APS prebid.
          */
-        private val placementToAdResponseMap: ConcurrentMap<String, DTBAdResponse?> =
-            ConcurrentHashMap()
+        private val placementToAdResponseMap: HashMap<String, DTBAdResponse?> =
+            hashMapOf()
 
         /**
          * Stores the pre bid settings so we can make a pre bid once the previous one has been consumed.
@@ -384,8 +382,8 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
     private fun buildCcpaPrivacy(
         adRequest: DTBAdRequest,
         ccpaPrivacyString: String?
-    ): DTBAdRequest {
-        return adRequest.apply {
+    ) {
+        adRequest.apply {
             ccpaPrivacyString?.let {
                 putCustomTarget(CCPA_PRIVACY_KEY, it)
             }
@@ -490,8 +488,9 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
         partnerAdListener: PartnerAdListener
     ): Result<PartnerAd> {
         val placementName = request.heliumPlacement
-        val adResponse = placementToAdResponseMap.remove(placementName)
-            ?: return Result.failure(HeliumAdException(HeliumErrorCode.NO_FILL))
+        val adResponse = withContext(Main) {
+            placementToAdResponseMap.remove(placementName)
+        } ?: return Result.failure(HeliumAdException(HeliumErrorCode.NO_FILL))
 
         return suspendCoroutine { continuation ->
             DTBAdInterstitial(context, object : DTBAdInterstitialListener {
