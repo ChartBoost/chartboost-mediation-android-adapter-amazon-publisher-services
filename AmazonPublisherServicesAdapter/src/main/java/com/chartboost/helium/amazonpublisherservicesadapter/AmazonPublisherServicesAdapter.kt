@@ -267,13 +267,22 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                         placementToAdResponseMap[placement] = adResponse
                     }
 
-                    continuation.resumeWith(
-                        Result.success(
-                            mutableMapOf(
-                                placement to SDKUtilities.getPricePoint(adResponse)
+                    SDKUtilities.getPricePoint(adResponse)?.let { pricePoint ->
+                        continuation.resumeWith(
+                            Result.success(
+                                mutableMapOf(
+                                    placement to pricePoint
+                                )
                             )
                         )
-                    )
+                    } ?: run {
+                        LogController.d("$TAG Failed to fetch price for placement $placement.")
+                        continuation.resumeWith(
+                            Result.failure(
+                                HeliumAdException(HeliumErrorCode.PARTNER_ERROR)
+                            )
+                        )
+                    }
                 }
             })
         }
@@ -585,14 +594,9 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
      * @return Result.success(PartnerAd) if the ad was successfully shown, Result.failure(Exception) otherwise.
      */
     private fun showInterstitialAd(partnerAd: PartnerAd): Result<PartnerAd> {
-        return (partnerAd.ad)?.let{ ad ->
-            (ad as? DTBAdInterstitial)?.let{
-                it.show()
-                Result.success(partnerAd)
-            } ?: run {
-                LogController.e("$TAG Failed to show APS interstitial ad. Ad is not DTBAdInterstitial.")
-                Result.failure(HeliumAdException(HeliumErrorCode.INTERNAL))
-            }
+        return (partnerAd.ad as? DTBAdInterstitial)?.let{ insterstitialAd ->
+            insterstitialAd.show()
+            Result.success(partnerAd)
         } ?: run {
             LogController.e("$TAG Failed to show APS interstitial ad. Ad is null.")
             Result.failure(HeliumAdException(HeliumErrorCode.INTERNAL))
@@ -607,14 +611,9 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
      * @return Result.success(PartnerAd) if the ad was successfully destroyed, Result.failure(Exception) otherwise.
      */
     private fun destroyBannerAd(partnerAd: PartnerAd): Result<PartnerAd> {
-        return partnerAd.ad?.let {
-            if (it is DTBAdView) {
-                it.destroy()
-                Result.success(partnerAd)
-            } else {
-                LogController.w("$TAG Failed to destroy APS banner ad. Ad is not a DTBAdView.")
-                Result.failure(HeliumAdException(HeliumErrorCode.INTERNAL))
-            }
+        return (partnerAd.ad as? DTBAdView)?.let { bannerAd ->
+            bannerAd.destroy()
+            Result.success(partnerAd)
         } ?: run {
             LogController.w("$TAG Failed to destroy APS banner ad. Ad is null.")
             Result.failure(HeliumAdException(HeliumErrorCode.INTERNAL))
