@@ -202,7 +202,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
             placementToAdResponseMap[placement]
         } ?: run {
             LogController.e("$TAG No ad response found.")
-            return mutableMapOf()
+            return mapOf()
         }
 
         SDKUtilities.getPricePoint(adResponse)?.let{
@@ -215,7 +215,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
             placementToPreBidSettings[placement]
         } ?: run {
             LogController.d("$TAG Could not find prebidSettings for this placement.")
-            return mutableMapOf()
+            return mapOf()
         }
 
         return suspendCoroutine { continuation ->
@@ -226,7 +226,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
             if (preBidSettings.partnerPlacement.isEmpty()) {
                 continuation.resumeWith(
                     Result.success(
-                        mutableMapOf()
+                        mapOf()
                     )
                 )
                 return@suspendCoroutine
@@ -235,7 +235,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
             if (isSubjectToCoppa) {
                 continuation.resumeWith(
                     Result.success(
-                        mutableMapOf()
+                        mapOf()
                     )
                 )
                 return@suspendCoroutine
@@ -257,7 +257,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
 
                     continuation.resumeWith(
                         Result.success(
-                            mutableMapOf()
+                            mapOf()
                         )
                     )
                 }
