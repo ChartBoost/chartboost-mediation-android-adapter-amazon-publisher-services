@@ -31,24 +31,24 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
          * Key for parsing the APS SDK application ID.
          */
         private const val APS_APPLICATION_ID_KEY = "application_id"
-
-        /**
-         * String Helium placement name to the APS prebid.
-         */
-        private val placementToAdResponseMap: HashMap<String, DTBAdResponse?> =
-            hashMapOf()
-
-        /**
-         * Stores the pre bid settings so we can make a pre bid once the previous one has been consumed.
-         * Only access this from the main thread.
-         */
-        private val placementToPreBidSettings: MutableMap<String, PreBidSettings> = mutableMapOf()
     }
+
+    /**
+     * String Helium placement name to the APS prebid.
+     */
+    private val placementToAdResponseMap: MutableMap<String, DTBAdResponse?> =
+        mutableMapOf()
+
+    /**
+     * Stores the pre bid settings so we can make a pre bid once the previous one has been consumed.
+     * Only access this from the main thread.
+     */
+    private val placementToPreBidSettings: MutableMap<String, PreBidSettings> = mutableMapOf()
 
     /**
      * Indicate whether GDPR currently applies to the user.
      */
-    private var isSubjectToGdpr = false
+    private var gdprApplies = false
 
     /**
      * Indicate whether the user has given CCPA consent.
@@ -102,7 +102,6 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
     ): Result<Unit> {
         return try {
             partnerConfiguration.credentials[APS_APPLICATION_ID_KEY]?.let { appKey ->
-
                 AdRegistration.getInstance(appKey, context)
 
                 AdRegistration.setAdNetworkInfo(DTBAdNetworkInfo(DTBAdNetwork.OTHER))
@@ -131,7 +130,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
      */
     override fun setGdprApplies(context: Context, gdprApplies: Boolean) {
         AdRegistration.setCMPFlavor(AdRegistration.CMPFlavor.CMP_NOT_DEFINED)
-        this.isSubjectToGdpr = gdprApplies
+        this.gdprApplies = gdprApplies
     }
 
     /**
@@ -141,7 +140,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
      * @param gdprConsentStatus The user's current GDPR consent status.
      */
     override fun setGdprConsentStatus(context: Context, gdprConsentStatus: GdprConsentStatus) {
-        if (isSubjectToGdpr) {
+        if (gdprApplies) {
             when (gdprConsentStatus) {
                 GdprConsentStatus.GDPR_CONSENT_GRANTED -> AdRegistration.setConsentStatus(
                     AdRegistration.ConsentStatus.EXPLICIT_YES
@@ -199,10 +198,16 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
         // TODO: Remove PreBidSettings and move settings to setUp [HB-4223](https://chartboost.atlassian.net/browse/HB-4223)
 
         val placement = request.heliumPlacement
+        val adResponse = withContext(Main) {
+            placementToAdResponseMap[placement]
+        } ?: run {
+            LogController.e("$TAG No ad response found.")
+            return mutableMapOf()
+        }
 
-        SDKUtilities.getPricePoint(placementToAdResponseMap[placement])?.let{
+        SDKUtilities.getPricePoint(adResponse)?.let{
             if (it.isNotEmpty()) {
-                return hashMapOf(placement to it)
+                return mutableMapOf(placement to it)
             }
         }
 
@@ -210,7 +215,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
             placementToPreBidSettings[placement]
         } ?: run {
             LogController.d("$TAG Could not find prebidSettings for this placement.")
-            return HashMap()
+            return mutableMapOf()
         }
 
         return suspendCoroutine { continuation ->
@@ -221,7 +226,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
             if (preBidSettings.partnerPlacement.isEmpty()) {
                 continuation.resumeWith(
                     Result.success(
-                        HashMap()
+                        mutableMapOf()
                     )
                 )
                 return@suspendCoroutine
@@ -230,7 +235,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
             if (isSubjectToCoppa) {
                 continuation.resumeWith(
                     Result.success(
-                        HashMap()
+                        mutableMapOf()
                     )
                 )
                 return@suspendCoroutine
@@ -238,7 +243,6 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
 
             buildAdRequestSize(request.format, adRequest, isVideo, preBidSettings)
             buildCcpaPrivacy(adRequest, ccpaPrivacyString)
-
 
             adRequest.loadAd(object : DTBAdCallback {
                 override fun onFailure(adError: AdError) {
@@ -253,7 +257,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
 
                     continuation.resumeWith(
                         Result.success(
-                            HashMap()
+                            mutableMapOf()
                         )
                     )
                 }
@@ -265,7 +269,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
 
                     continuation.resumeWith(
                         Result.success(
-                            hashMapOf(
+                            mutableMapOf(
                                 placement to SDKUtilities.getPricePoint(adResponse)
                             )
                         )
@@ -275,6 +279,15 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
         }
     }
 
+    /**
+     * Builds a [DTBAdSize] object based on the ad format, whether it is a [DTBAdSize.DTBVideo] and
+     * passes it to the [DTBAdRequest] ad request.
+     *
+     * @param format The current [AdFormat].
+     * @param adRequest The current [DTBAdRequest].
+     * @param isVideo Whether the current ad request is a video or not.
+     * @param preBidSettings Relevant data for the current bid request.
+     */
     private fun buildAdRequestSize(
         format: AdFormat,
         adRequest: DTBAdRequest,
@@ -407,7 +420,10 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
         val placementName = request.heliumPlacement
         val adResponse = withContext(Main) {
             placementToAdResponseMap.remove(placementName)
-        } ?: return Result.failure(HeliumAdException(HeliumErrorCode.NO_FILL))
+        } ?: run {
+            LogController.e("$TAG No ad response found.")
+            return Result.failure(HeliumAdException(HeliumErrorCode.NO_FILL))
+        }
 
         return suspendCoroutine { continuation ->
             DTBAdView(context, object : DTBAdBannerListener {
@@ -490,7 +506,10 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
         val placementName = request.heliumPlacement
         val adResponse = withContext(Main) {
             placementToAdResponseMap.remove(placementName)
-        } ?: return Result.failure(HeliumAdException(HeliumErrorCode.NO_FILL))
+        } ?: run {
+            LogController.e("$TAG No ad response found.")
+            return Result.failure(HeliumAdException(HeliumErrorCode.NO_FILL))
+        }
 
         return suspendCoroutine { continuation ->
             DTBAdInterstitial(context, object : DTBAdInterstitialListener {
@@ -566,8 +585,18 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
      * @return Result.success(PartnerAd) if the ad was successfully shown, Result.failure(Exception) otherwise.
      */
     private fun showInterstitialAd(partnerAd: PartnerAd): Result<PartnerAd> {
-        (partnerAd.ad as DTBAdInterstitial).show()
-        return Result.success(partnerAd)
+        return (partnerAd.ad)?.let{ ad ->
+            (ad as? DTBAdInterstitial)?.let{
+                it.show()
+                Result.success(partnerAd)
+            } ?: run {
+                LogController.e("$TAG Failed to show APS interstitial ad. Ad is not DTBAdInterstitial.")
+                Result.failure(HeliumAdException(HeliumErrorCode.INTERNAL))
+            }
+        } ?: run {
+            LogController.e("$TAG Failed to show APS interstitial ad. Ad is null.")
+            Result.failure(HeliumAdException(HeliumErrorCode.INTERNAL))
+        }
     }
 
     /**
