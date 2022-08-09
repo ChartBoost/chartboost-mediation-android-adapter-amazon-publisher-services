@@ -278,8 +278,8 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                     } ?: run {
                         LogController.d("$TAG Failed to fetch price for placement $placement.")
                         continuation.resumeWith(
-                            Result.failure(
-                                HeliumAdException(HeliumErrorCode.PARTNER_ERROR)
+                            Result.success(
+                                emptyMap()
                             )
                         )
                     }
