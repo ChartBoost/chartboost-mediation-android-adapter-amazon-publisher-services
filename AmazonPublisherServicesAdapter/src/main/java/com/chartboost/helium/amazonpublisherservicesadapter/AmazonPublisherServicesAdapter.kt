@@ -279,7 +279,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                         LogController.d("$TAG Failed to fetch price for placement $placement.")
                         continuation.resumeWith(
                             Result.success(
-                                emptyMap()
+                                mapOf()
                             )
                         )
                     }
