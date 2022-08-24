@@ -18,6 +18,23 @@ import kotlin.coroutines.suspendCoroutine
 class AmazonPublisherServicesAdapter : PartnerAdapter {
     companion object {
         /**
+         * Test mode flag that can optionally be set to true to enable test ads. It can be set at any
+         * time and will take effect for the next ad request. Remember to set this to false in
+         * production.
+         */
+        public var testMode = false
+            set(value) {
+                field = value
+                AdRegistration.enableTesting(value)
+                LogController.d(
+                    "$TAG - Amazon Publisher Services test mode is ${
+                        if (value) "enabled. Remember to disable it before publishing."
+                        else "disabled."
+                    }"
+                )
+            }
+
+        /**
          * The tag used for log messages.
          */
         private val TAG = "[${this::class.java.simpleName}]"
@@ -205,7 +222,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
             return mapOf()
         }
 
-        SDKUtilities.getPricePoint(adResponse)?.let{
+        SDKUtilities.getPricePoint(adResponse)?.let {
             if (it.isNotEmpty()) {
                 return mutableMapOf(placement to it)
             }
@@ -594,7 +611,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
      * @return Result.success(PartnerAd) if the ad was successfully shown, Result.failure(Exception) otherwise.
      */
     private fun showInterstitialAd(partnerAd: PartnerAd): Result<PartnerAd> {
-        return (partnerAd.ad as? DTBAdInterstitial)?.let{ insterstitialAd ->
+        return (partnerAd.ad as? DTBAdInterstitial)?.let { insterstitialAd ->
             insterstitialAd.show()
             Result.success(partnerAd)
         } ?: run {
