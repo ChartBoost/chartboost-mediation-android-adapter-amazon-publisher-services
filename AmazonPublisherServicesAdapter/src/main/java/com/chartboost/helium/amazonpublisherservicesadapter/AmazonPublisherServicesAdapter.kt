@@ -8,6 +8,7 @@ import com.chartboost.heliumsdk.utils.LogController
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers.Main
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
@@ -37,7 +38,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
         /**
          * The tag used for log messages.
          */
-        private val TAG = "[${this::class.java.simpleName}]"
+        private val TAG = "[${AmazonPublisherServicesAdapter::class.java.simpleName}]"
 
         /**
          * Key for setting the CCPA privacy.
@@ -49,6 +50,16 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
          */
         private const val APS_APPLICATION_ID_KEY = "application_id"
     }
+
+    /**
+     * A lambda to call for successful APS ad shows.
+     */
+    private var onShowSuccess: () -> Unit = {}
+
+    /**
+     * A lambda to call for failed APS ad shows.
+     */
+    private var onShowError: () -> Unit = {}
 
     /**
      * String Helium placement name to the APS prebid.
@@ -575,7 +586,12 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                 }
 
                 override fun onAdOpen(adView: View?) {
-                    // NO-OP
+                    adView?.let {
+                        onShowSuccess()
+                    } ?: run {
+                        LogController.d("$TAG onAdOpen triggered, but View is null.")
+                        onShowError()
+                    }
                 }
 
                 override fun onAdClosed(adView: View?) {
@@ -610,10 +626,25 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
      *
      * @return Result.success(PartnerAd) if the ad was successfully shown, Result.failure(Exception) otherwise.
      */
-    private fun showInterstitialAd(partnerAd: PartnerAd): Result<PartnerAd> {
-        return (partnerAd.ad as? DTBAdInterstitial)?.let { insterstitialAd ->
-            insterstitialAd.show()
-            Result.success(partnerAd)
+    private suspend fun showInterstitialAd(partnerAd: PartnerAd): Result<PartnerAd> {
+        return (partnerAd.ad)?.let { ad ->
+            (ad as? DTBAdInterstitial)?.let {
+                suspendCancellableCoroutine { continuation ->
+                    onShowSuccess = {
+                        continuation.resume(Result.success(partnerAd))
+                    }
+
+                    onShowError = {
+                        continuation.resume(Result.failure(
+                            HeliumAdException(HeliumErrorCode.PARTNER_ERROR))
+                        )
+                    }
+                    it.show()
+                }
+            } ?: run {
+                LogController.e("$TAG Failed to show APS interstitial ad. Ad is not DTBAdInterstitial.")
+                Result.failure(HeliumAdException(HeliumErrorCode.INTERNAL))
+            }
         } ?: run {
             LogController.e("$TAG Failed to show APS interstitial ad. Ad is null.")
             Result.failure(HeliumAdException(HeliumErrorCode.INTERNAL))
