@@ -57,11 +57,6 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
     private var onShowSuccess: () -> Unit = {}
 
     /**
-     * A lambda to call for failed APS ad shows.
-     */
-    private var onShowError: () -> Unit = {}
-
-    /**
      * String Helium placement name to the APS prebid.
      */
     private val placementToAdResponseMap: MutableMap<String, DTBAdResponse?> =
@@ -586,12 +581,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                 }
 
                 override fun onAdOpen(adView: View?) {
-                    adView?.let {
-                        onShowSuccess()
-                    } ?: run {
-                        LogController.d("$TAG onAdOpen triggered, but View is null.")
-                        onShowError()
-                    }
+                    onShowSuccess()
                 }
 
                 override fun onAdClosed(adView: View?) {
@@ -632,12 +622,6 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                 suspendCancellableCoroutine { continuation ->
                     onShowSuccess = {
                         continuation.resume(Result.success(partnerAd))
-                    }
-
-                    onShowError = {
-                        continuation.resume(Result.failure(
-                            HeliumAdException(HeliumErrorCode.PARTNER_ERROR))
-                        )
                     }
                     it.show()
                 }
