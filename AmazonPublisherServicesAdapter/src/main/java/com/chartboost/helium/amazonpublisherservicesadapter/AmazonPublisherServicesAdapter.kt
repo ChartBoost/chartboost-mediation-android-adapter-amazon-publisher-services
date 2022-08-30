@@ -28,17 +28,12 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                 field = value
                 AdRegistration.enableTesting(value)
                 LogController.d(
-                    "$TAG - Amazon Publisher Services test mode is ${
+                    "- Amazon Publisher Services test mode is ${
                         if (value) "enabled. Remember to disable it before publishing."
                         else "disabled."
                     }"
                 )
             }
-
-        /**
-         * The tag used for log messages.
-         */
-        private val TAG = "[${AmazonPublisherServicesAdapter::class.java.simpleName}]"
 
         /**
          * Key for setting the CCPA privacy.
@@ -134,13 +129,13 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                 // TODO: Remove once pipes have proven to function.
                 AdRegistration.enableLogging(true, DTBLogLevel.All)
 
-                Result.success(LogController.i("$TAG APS SDK successfully initialized."))
+                Result.success(LogController.i("APS SDK successfully initialized."))
             } ?: run {
-                LogController.e("$TAG Failed to initialize APS SDK: Missing application ID.")
+                LogController.e("Failed to initialize APS SDK: Missing application ID.")
                 Result.failure(HeliumAdException(HeliumErrorCode.PARTNER_SDK_NOT_INITIALIZED))
             }
         } catch (illegalArgumentException: IllegalArgumentException) {
-            LogController.e("$TAG Failed to initialize APS SDK: Illegal Argument Exception. ${illegalArgumentException.message}")
+            LogController.e("Failed to initialize APS SDK: Illegal Argument Exception. ${illegalArgumentException.message}")
             Result.failure(HeliumAdException(HeliumErrorCode.PARTNER_SDK_NOT_INITIALIZED))
         }
     }
@@ -224,7 +219,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
         val adResponse = withContext(Main) {
             placementToAdResponseMap[placement]
         } ?: run {
-            LogController.e("$TAG No ad response found.")
+            LogController.e("No ad response found.")
             return mapOf()
         }
 
@@ -237,7 +232,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
         val preBidSettings = withContext(Main) {
             placementToPreBidSettings[placement]
         } ?: run {
-            LogController.d("$TAG Could not find prebidSettings for this placement.")
+            LogController.d("Could not find prebidSettings for this placement.")
             return mapOf()
         }
 
@@ -270,7 +265,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
             adRequest.loadAd(object : DTBAdCallback {
                 override fun onFailure(adError: AdError) {
                     LogController.d(
-                        "$TAG Failed to fetch price point for placement " +
+                        "Failed to fetch price point for placement " +
                                 "$placement, with error ${adError.code}: ${adError.message}"
                     )
 
@@ -299,7 +294,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                             )
                         )
                     } ?: run {
-                        LogController.d("$TAG Failed to fetch price for placement $placement.")
+                        LogController.d("Failed to fetch price for placement $placement.")
                         continuation.resumeWith(
                             Result.success(
                                 mapOf()
@@ -368,7 +363,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
         partnerAdListener: PartnerAdListener
     ): Result<PartnerAd> {
         if (isSubjectToCoppa) {
-            LogController.d("$TAG User subject to COPPA. Failing load.")
+            LogController.d("User subject to COPPA. Failing load.")
             return Result.failure(HeliumAdException(HeliumErrorCode.NO_FILL))
         }
 
@@ -389,7 +384,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
      */
     override suspend fun show(context: Context, partnerAd: PartnerAd): Result<PartnerAd> {
         if (isSubjectToCoppa) {
-            LogController.d("$TAG User subject to COPPA. Failing all show.")
+            LogController.d("User subject to COPPA. Failing all show.")
             return Result.failure(HeliumAdException(HeliumErrorCode.PARTNER_ERROR))
         }
 
@@ -453,7 +448,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
         val adResponse = withContext(Main) {
             placementToAdResponseMap.remove(placementName)
         } ?: run {
-            LogController.e("$TAG No ad response found.")
+            LogController.e("No ad response found.")
             return Result.failure(HeliumAdException(HeliumErrorCode.NO_FILL))
         }
 
@@ -472,7 +467,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                 }
 
                 override fun onAdFailed(adView: View?) {
-                    LogController.d("$TAG Failed to load Amazon Publisher Services banner ad.")
+                    LogController.d("Failed to load Amazon Publisher Services banner ad.")
                     continuation.resumeWith(
                         Result.failure(
                             HeliumAdException(HeliumErrorCode.PARTNER_ERROR)
@@ -539,7 +534,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
         val adResponse = withContext(Main) {
             placementToAdResponseMap.remove(placementName)
         } ?: run {
-            LogController.e("$TAG No ad response found.")
+            LogController.e("No ad response found.")
             return Result.failure(HeliumAdException(HeliumErrorCode.NO_FILL))
         }
 
@@ -558,7 +553,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                 }
 
                 override fun onAdFailed(adView: View?) {
-                    LogController.d("$TAG Failed to load Amazon Publisher Services interstitial ad.")
+                    LogController.d("Failed to load Amazon Publisher Services interstitial ad.")
                     continuation.resumeWith(
                         Result.failure(
                             HeliumAdException(HeliumErrorCode.PARTNER_ERROR)
@@ -626,11 +621,11 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                     it.show()
                 }
             } ?: run {
-                LogController.e("$TAG Failed to show APS interstitial ad. Ad is not DTBAdInterstitial.")
+                LogController.e("Failed to show APS interstitial ad. Ad is not DTBAdInterstitial.")
                 Result.failure(HeliumAdException(HeliumErrorCode.INTERNAL))
             }
         } ?: run {
-            LogController.e("$TAG Failed to show APS interstitial ad. Ad is null.")
+            LogController.e("Failed to show APS interstitial ad. Ad is null.")
             Result.failure(HeliumAdException(HeliumErrorCode.INTERNAL))
         }
     }
@@ -647,7 +642,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
             bannerAd.destroy()
             Result.success(partnerAd)
         } ?: run {
-            LogController.w("$TAG Failed to destroy APS banner ad. Ad is null.")
+            LogController.w("Failed to destroy APS banner ad. Ad is null.")
             Result.failure(HeliumAdException(HeliumErrorCode.INTERNAL))
         }
     }
