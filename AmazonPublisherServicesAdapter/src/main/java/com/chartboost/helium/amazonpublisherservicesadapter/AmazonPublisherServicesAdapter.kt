@@ -4,7 +4,10 @@ import android.content.Context
 import android.view.View
 import com.amazon.device.ads.*
 import com.chartboost.heliumsdk.domain.*
-import com.chartboost.heliumsdk.utils.LogController
+import com.chartboost.heliumsdk.utils.PartnerLogController
+import com.chartboost.heliumsdk.utils.PartnerLogController.PartnerAdapterEvents.*
+import com.chartboost.heliumsdk.utils.PartnerLogController.PartnerAdapterFailureEvents.*
+import com.chartboost.heliumsdk.utils.PartnerLogController.PartnerAdapterSuccessEvents.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers.Main
 import kotlinx.coroutines.launch
@@ -27,7 +30,8 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
             set(value) {
                 field = value
                 AdRegistration.enableTesting(value)
-                LogController.d(
+                PartnerLogController.log(
+                    CUSTOM,
                     "- Amazon Publisher Services test mode is ${
                         if (value) "enabled. Remember to disable it before publishing."
                         else "disabled."
@@ -118,6 +122,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
         context: Context,
         partnerConfiguration: PartnerConfiguration
     ): Result<Unit> {
+        PartnerLogController.log(SETUP_STARTED)
         return try {
             partnerConfiguration.credentials[APS_APPLICATION_ID_KEY]?.let { appKey ->
                 AdRegistration.getInstance(appKey, context)
@@ -129,13 +134,13 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                 // TODO: Remove once pipes have proven to function.
                 AdRegistration.enableLogging(true, DTBLogLevel.All)
 
-                Result.success(LogController.i("APS SDK successfully initialized."))
+                Result.success(PartnerLogController.log(SETUP_SUCCEEDED))
             } ?: run {
-                LogController.e("Failed to initialize APS SDK: Missing application ID.")
+                PartnerLogController.log(SETUP_FAILED, "Missing application ID.")
                 Result.failure(HeliumAdException(HeliumErrorCode.PARTNER_SDK_NOT_INITIALIZED))
             }
         } catch (illegalArgumentException: IllegalArgumentException) {
-            LogController.e("Failed to initialize APS SDK: Illegal Argument Exception. ${illegalArgumentException.message}")
+            PartnerLogController.log(SETUP_FAILED, "${illegalArgumentException.message}")
             Result.failure(HeliumAdException(HeliumErrorCode.PARTNER_SDK_NOT_INITIALIZED))
         }
     }
@@ -212,14 +217,14 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
         context: Context,
         request: PreBidRequest
     ): Map<String, String> {
-
         // TODO: Remove PreBidSettings and move settings to setUp [HB-4223](https://chartboost.atlassian.net/browse/HB-4223)
+        PartnerLogController.log(BIDDER_INFO_FETCH_STARTED)
 
         val placement = request.heliumPlacement
         val adResponse = withContext(Main) {
             placementToAdResponseMap[placement]
         } ?: run {
-            LogController.e("No ad response found.")
+            PartnerLogController.log(BIDDER_INFO_FETCH_FAILED, "No ad response found.")
             return mapOf()
         }
 
@@ -232,7 +237,10 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
         val preBidSettings = withContext(Main) {
             placementToPreBidSettings[placement]
         } ?: run {
-            LogController.d("Could not find prebidSettings for this placement.")
+            PartnerLogController.log(
+                BIDDER_INFO_FETCH_FAILED,
+                "Could not find prebidSettings for this placement."
+            )
             return mapOf()
         }
 
@@ -242,20 +250,12 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
             val isVideo = preBidSettings.video
 
             if (preBidSettings.partnerPlacement.isEmpty()) {
-                continuation.resumeWith(
-                    Result.success(
-                        mapOf()
-                    )
-                )
+                continuation.resume(mapOf())
                 return@suspendCoroutine
             }
 
             if (isSubjectToCoppa) {
-                continuation.resumeWith(
-                    Result.success(
-                        mapOf()
-                    )
-                )
+                continuation.resume(mapOf())
                 return@suspendCoroutine
             }
 
@@ -264,20 +264,16 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
 
             adRequest.loadAd(object : DTBAdCallback {
                 override fun onFailure(adError: AdError) {
-                    LogController.d(
-                        "Failed to fetch price point for placement " +
-                                "$placement, with error ${adError.code}: ${adError.message}"
+                    PartnerLogController.log(
+                        BIDDER_INFO_FETCH_FAILED,
+                        "Placement: $placement. Error: ${adError.code}. Message: ${adError.message}"
                     )
 
                     CoroutineScope(Main.immediate).launch {
                         placementToAdResponseMap.remove(placement)
                     }
 
-                    continuation.resumeWith(
-                        Result.success(
-                            mapOf()
-                        )
-                    )
+                    continuation.resume(mapOf())
                 }
 
                 override fun onSuccess(adResponse: DTBAdResponse) {
@@ -286,20 +282,11 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                     }
 
                     SDKUtilities.getPricePoint(adResponse)?.let { pricePoint ->
-                        continuation.resumeWith(
-                            Result.success(
-                                mutableMapOf(
-                                    placement to pricePoint
-                                )
-                            )
-                        )
+                        PartnerLogController.log(BIDDER_INFO_FETCH_SUCCEEDED)
+                        continuation.resume(mutableMapOf(placement to pricePoint))
                     } ?: run {
-                        LogController.d("Failed to fetch price for placement $placement.")
-                        continuation.resumeWith(
-                            Result.success(
-                                mapOf()
-                            )
-                        )
+                        PartnerLogController.log(BIDDER_INFO_FETCH_FAILED, "Placement: $placement.")
+                        continuation.resume(mapOf())
                     }
                 }
             })
@@ -352,25 +339,30 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
      * Attempt to load an APS ad.
      *
      * @param context The current [Context].
-     * @param request An [AdLoadRequest] instance containing relevant data for the current ad load call.
+     * @param request An [PartnerAdLoadRequest] instance containing relevant data for the current ad load call.
      * @param partnerAdListener A [PartnerAdListener] to notify Helium of ad events.
      *
      * @return Result.success(PartnerAd) if the ad was successfully loaded, Result.failure(Exception) otherwise.
      */
     override suspend fun load(
         context: Context,
-        request: AdLoadRequest,
+        request: PartnerAdLoadRequest,
         partnerAdListener: PartnerAdListener
     ): Result<PartnerAd> {
+        PartnerLogController.log(LOAD_STARTED)
+
         if (isSubjectToCoppa) {
-            LogController.d("User subject to COPPA. Failing load.")
+            PartnerLogController.log(LOAD_FAILED, "User subject to COPPA.")
             return Result.failure(HeliumAdException(HeliumErrorCode.NO_FILL))
         }
 
         return when (request.format) {
             AdFormat.BANNER -> loadBannerAd(context, request, partnerAdListener)
             AdFormat.INTERSTITIAL -> loadInterstitialAd(context, request, partnerAdListener)
-            AdFormat.REWARDED -> return Result.failure(HeliumAdException(HeliumErrorCode.AD_FORMAT_NOT_SUPPORTED))
+            AdFormat.REWARDED -> {
+                PartnerLogController.log(LOAD_FAILED)
+                Result.failure(HeliumAdException(HeliumErrorCode.AD_FORMAT_NOT_SUPPORTED))
+            }
         }
     }
 
@@ -383,18 +375,24 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
      * @return Result.success(PartnerAd) if the ad was successfully shown, Result.failure(Exception) otherwise.
      */
     override suspend fun show(context: Context, partnerAd: PartnerAd): Result<PartnerAd> {
+        PartnerLogController.log(SHOW_STARTED)
+
         if (isSubjectToCoppa) {
-            LogController.d("User subject to COPPA. Failing all show.")
+            PartnerLogController.log(SHOW_FAILED, "User subject to COPPA")
             return Result.failure(HeliumAdException(HeliumErrorCode.PARTNER_ERROR))
         }
 
         return when (partnerAd.request.format) {
             AdFormat.BANNER -> {
                 // Banner ads do not have a separate "show" mechanism.
+                PartnerLogController.log(SHOW_SUCCEEDED)
                 Result.success(partnerAd)
             }
             AdFormat.INTERSTITIAL -> showInterstitialAd(partnerAd)
-            AdFormat.REWARDED -> Result.failure(HeliumAdException(HeliumErrorCode.AD_FORMAT_NOT_SUPPORTED))
+            AdFormat.REWARDED -> {
+                PartnerLogController.log(SHOW_FAILED)
+                Result.failure(HeliumAdException(HeliumErrorCode.AD_FORMAT_NOT_SUPPORTED))
+            }
         }
     }
 
@@ -406,9 +404,14 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
      * @return Result.success(PartnerAd) if the ad was successfully discarded, Result.failure(Exception) otherwise.
      */
     override suspend fun invalidate(partnerAd: PartnerAd): Result<PartnerAd> {
+        PartnerLogController.log(INVALIDATE_STARTED)
+
         return when (partnerAd.request.format) {
             AdFormat.BANNER -> destroyBannerAd(partnerAd)
-            else -> Result.success(partnerAd)
+            else -> {
+                PartnerLogController.log(INVALIDATE_SUCCEEDED)
+                Result.success(partnerAd)
+            }
         }
     }
 
@@ -434,27 +437,28 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
      * Attempt to load an APS banner ad.
      *
      * @param context The current [Context].
-     * @param request An [AdLoadRequest] instance containing relevant data for the current ad load call.
+     * @param request An [PartnerAdLoadRequest] instance containing relevant data for the current ad load call.
      * @param partnerAdListener A [PartnerAdListener] to notify Helium of ad events.
      *
      * @return Result.success(PartnerAd) if the ad was successfully loaded, Result.failure(Exception) otherwise.
      */
     private suspend fun loadBannerAd(
         context: Context,
-        request: AdLoadRequest,
+        request: PartnerAdLoadRequest,
         partnerAdListener: PartnerAdListener
     ): Result<PartnerAd> {
         val placementName = request.heliumPlacement
         val adResponse = withContext(Main) {
             placementToAdResponseMap.remove(placementName)
         } ?: run {
-            LogController.e("No ad response found.")
+            PartnerLogController.log(LOAD_FAILED, "No ad response found.")
             return Result.failure(HeliumAdException(HeliumErrorCode.NO_FILL))
         }
 
         return suspendCoroutine { continuation ->
             DTBAdView(context, object : DTBAdBannerListener {
                 override fun onAdLoaded(adView: View?) {
+                    PartnerLogController.log(LOAD_SUCCEEDED)
                     continuation.resume(
                         Result.success(
                             PartnerAd(
@@ -467,7 +471,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                 }
 
                 override fun onAdFailed(adView: View?) {
-                    LogController.d("Failed to load Amazon Publisher Services banner ad.")
+                    PartnerLogController.log(LOAD_FAILED)
                     continuation.resumeWith(
                         Result.failure(
                             HeliumAdException(HeliumErrorCode.PARTNER_ERROR)
@@ -476,6 +480,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                 }
 
                 override fun onAdClicked(adView: View?) {
+                    PartnerLogController.log(DID_CLICK)
                     partnerAdListener.onPartnerAdClicked(
                         PartnerAd(
                             ad = adView,
@@ -494,6 +499,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                 }
 
                 override fun onAdClosed(adView: View?) {
+                    PartnerLogController.log(DID_DISMISS)
                     partnerAdListener.onPartnerAdDismissed(
                         PartnerAd(
                             ad = adView,
@@ -505,6 +511,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                 }
 
                 override fun onImpressionFired(adView: View?) {
+                    PartnerLogController.log(DID_TRACK_IMPRESSION)
                     partnerAdListener.onPartnerAdImpression(
                         PartnerAd(
                             ad = adView,
@@ -520,27 +527,28 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
     /**
      * Attempt to load an APS interstitial ad.
      *
-     * @param request An [AdLoadRequest] instance containing data to load the ad with.
+     * @param request An [PartnerAdLoadRequest] instance containing data to load the ad with.
      * @param partnerAdListener A [PartnerAdListener] to notify Helium of ad events.
      *
      * @return Result.success(PartnerAd) if the ad was successfully loaded, Result.failure(Exception) otherwise.
      */
     private suspend fun loadInterstitialAd(
         context: Context,
-        request: AdLoadRequest,
+        request: PartnerAdLoadRequest,
         partnerAdListener: PartnerAdListener
     ): Result<PartnerAd> {
         val placementName = request.heliumPlacement
         val adResponse = withContext(Main) {
             placementToAdResponseMap.remove(placementName)
         } ?: run {
-            LogController.e("No ad response found.")
+            PartnerLogController.log(LOAD_FAILED, "No ad response found.")
             return Result.failure(HeliumAdException(HeliumErrorCode.NO_FILL))
         }
 
         return suspendCoroutine { continuation ->
             DTBAdInterstitial(context, object : DTBAdInterstitialListener {
                 override fun onAdLoaded(adView: View?) {
+                    PartnerLogController.log(LOAD_SUCCEEDED)
                     continuation.resume(
                         Result.success(
                             PartnerAd(
@@ -553,7 +561,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                 }
 
                 override fun onAdFailed(adView: View?) {
-                    LogController.d("Failed to load Amazon Publisher Services interstitial ad.")
+                    PartnerLogController.log(LOAD_FAILED)
                     continuation.resumeWith(
                         Result.failure(
                             HeliumAdException(HeliumErrorCode.PARTNER_ERROR)
@@ -562,6 +570,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                 }
 
                 override fun onAdClicked(adView: View?) {
+                    PartnerLogController.log(DID_CLICK)
                     partnerAdListener.onPartnerAdClicked(
                         PartnerAd(
                             ad = adView,
@@ -580,6 +589,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                 }
 
                 override fun onAdClosed(adView: View?) {
+                    PartnerLogController.log(DID_DISMISS)
                     partnerAdListener.onPartnerAdDismissed(
                         PartnerAd(
                             ad = adView,
@@ -591,6 +601,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                 }
 
                 override fun onImpressionFired(adView: View?) {
+                    PartnerLogController.log(DID_TRACK_IMPRESSION)
                     partnerAdListener.onPartnerAdImpression(
                         PartnerAd(
                             ad = adView,
@@ -616,16 +627,17 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
             (ad as? DTBAdInterstitial)?.let {
                 suspendCancellableCoroutine { continuation ->
                     onShowSuccess = {
+                        PartnerLogController.log(SHOW_SUCCEEDED)
                         continuation.resume(Result.success(partnerAd))
                     }
                     it.show()
                 }
             } ?: run {
-                LogController.e("Failed to show APS interstitial ad. Ad is not DTBAdInterstitial.")
+                PartnerLogController.log(SHOW_FAILED, "Ad is not DTBAdInterstitial.")
                 Result.failure(HeliumAdException(HeliumErrorCode.INTERNAL))
             }
         } ?: run {
-            LogController.e("Failed to show APS interstitial ad. Ad is null.")
+            PartnerLogController.log(SHOW_FAILED, "Ad is null.")
             Result.failure(HeliumAdException(HeliumErrorCode.INTERNAL))
         }
     }
@@ -640,9 +652,11 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
     private fun destroyBannerAd(partnerAd: PartnerAd): Result<PartnerAd> {
         return (partnerAd.ad as? DTBAdView)?.let { bannerAd ->
             bannerAd.destroy()
+
+            PartnerLogController.log(INVALIDATE_SUCCEEDED)
             Result.success(partnerAd)
         } ?: run {
-            LogController.w("Failed to destroy APS banner ad. Ad is null.")
+            PartnerLogController.log(INVALIDATE_FAILED, "Ad is null.")
             Result.failure(HeliumAdException(HeliumErrorCode.INTERNAL))
         }
     }
