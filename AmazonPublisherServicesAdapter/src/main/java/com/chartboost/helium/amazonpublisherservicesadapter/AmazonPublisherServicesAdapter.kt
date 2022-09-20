@@ -124,7 +124,8 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
     ): Result<Unit> {
         PartnerLogController.log(SETUP_STARTED)
         return try {
-            partnerConfiguration.credentials[APS_APPLICATION_ID_KEY]?.let { appKey ->
+            partnerConfiguration.credentials.optString(APS_APPLICATION_ID_KEY)
+                .takeIf { it.isNotBlank() }?.let { appKey ->
                 AdRegistration.getInstance(appKey, context)
 
                 AdRegistration.setAdNetworkInfo(DTBAdNetworkInfo(DTBAdNetwork.OTHER))
