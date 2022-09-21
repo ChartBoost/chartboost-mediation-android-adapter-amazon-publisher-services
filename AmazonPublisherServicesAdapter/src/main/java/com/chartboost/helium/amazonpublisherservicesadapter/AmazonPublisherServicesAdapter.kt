@@ -124,19 +124,19 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
     ): Result<Unit> {
         PartnerLogController.log(SETUP_STARTED)
         return try {
-            partnerConfiguration.credentials.optString(APS_APPLICATION_ID_KEY)
-                .takeIf { it.isNotBlank() }?.let { appKey ->
-                AdRegistration.getInstance(appKey, context)
+            partnerConfiguration.credentials.optString(APS_APPLICATION_ID_KEY).trim()
+                .takeIf { it.isNotEmpty() }?.let { appKey ->
+                    AdRegistration.getInstance(appKey, context)
 
-                AdRegistration.setAdNetworkInfo(DTBAdNetworkInfo(DTBAdNetwork.OTHER))
-                AdRegistration.setMRAIDSupportedVersions(arrayOf("1.0", "2.0", "3.0"))
-                AdRegistration.setMRAIDPolicy(MRAIDPolicy.CUSTOM)
+                    AdRegistration.setAdNetworkInfo(DTBAdNetworkInfo(DTBAdNetwork.OTHER))
+                    AdRegistration.setMRAIDSupportedVersions(arrayOf("1.0", "2.0", "3.0"))
+                    AdRegistration.setMRAIDPolicy(MRAIDPolicy.CUSTOM)
 
-                // TODO: Remove once pipes have proven to function.
-                AdRegistration.enableLogging(true, DTBLogLevel.All)
+                    // TODO: Remove once pipes have proven to function.
+                    AdRegistration.enableLogging(true, DTBLogLevel.All)
 
-                Result.success(PartnerLogController.log(SETUP_SUCCEEDED))
-            } ?: run {
+                    Result.success(PartnerLogController.log(SETUP_SUCCEEDED))
+                } ?: run {
                 PartnerLogController.log(SETUP_FAILED, "Missing application ID.")
                 Result.failure(HeliumAdException(HeliumErrorCode.PARTNER_SDK_NOT_INITIALIZED))
             }
