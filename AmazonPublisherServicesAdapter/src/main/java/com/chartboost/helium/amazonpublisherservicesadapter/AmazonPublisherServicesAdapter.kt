@@ -6,8 +6,6 @@ import com.amazon.device.ads.*
 import com.chartboost.heliumsdk.domain.*
 import com.chartboost.heliumsdk.utils.PartnerLogController
 import com.chartboost.heliumsdk.utils.PartnerLogController.PartnerAdapterEvents.*
-import com.chartboost.heliumsdk.utils.PartnerLogController.PartnerAdapterFailureEvents.*
-import com.chartboost.heliumsdk.utils.PartnerLogController.PartnerAdapterSuccessEvents.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers.Main
 import kotlinx.coroutines.launch
@@ -153,6 +151,8 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
      * @param gdprApplies Whether GDPR applies or not.
      */
     override fun setGdprApplies(context: Context, gdprApplies: Boolean) {
+        PartnerLogController.log(if (gdprApplies) GDPR_APPLICABLE else GDPR_NOT_APPLICABLE)
+
         AdRegistration.setCMPFlavor(AdRegistration.CMPFlavor.CMP_NOT_DEFINED)
         this.gdprApplies = gdprApplies
     }
@@ -166,15 +166,24 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
     override fun setGdprConsentStatus(context: Context, gdprConsentStatus: GdprConsentStatus) {
         if (gdprApplies) {
             when (gdprConsentStatus) {
-                GdprConsentStatus.GDPR_CONSENT_GRANTED -> AdRegistration.setConsentStatus(
-                    AdRegistration.ConsentStatus.EXPLICIT_YES
-                )
-                GdprConsentStatus.GDPR_CONSENT_DENIED -> AdRegistration.setConsentStatus(
-                    AdRegistration.ConsentStatus.EXPLICIT_NO
-                )
-                GdprConsentStatus.GDPR_CONSENT_UNKNOWN -> AdRegistration.setConsentStatus(
-                    AdRegistration.ConsentStatus.UNKNOWN
-                )
+                GdprConsentStatus.GDPR_CONSENT_GRANTED -> {
+                    PartnerLogController.log(GDPR_CONSENT_GRANTED)
+                    AdRegistration.setConsentStatus(
+                        AdRegistration.ConsentStatus.EXPLICIT_YES
+                    )
+                }
+                GdprConsentStatus.GDPR_CONSENT_DENIED -> {
+                    PartnerLogController.log(GDPR_CONSENT_DENIED)
+                    AdRegistration.setConsentStatus(
+                        AdRegistration.ConsentStatus.EXPLICIT_NO
+                    )
+                }
+                GdprConsentStatus.GDPR_CONSENT_UNKNOWN -> {
+                    PartnerLogController.log(GDPR_CONSENT_UNKNOWN)
+                    AdRegistration.setConsentStatus(
+                        AdRegistration.ConsentStatus.UNKNOWN
+                    )
+                }
             }
         } else {
             AdRegistration.setConsentStatus(AdRegistration.ConsentStatus.CONSENT_NOT_DEFINED)
@@ -185,14 +194,19 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
      * Notify APS of the CCPA compliance.
      *
      * @param context The current [Context]
-     * @param hasGivenCcpaConsent The user's current CCPA consent status.
+     * @param hasGrantedCcpaConsent The user's current CCPA consent status.
      * @param privacyString The CCPA privacy string.
      */
     override fun setCcpaConsent(
         context: Context,
-        hasGivenCcpaConsent: Boolean,
+        hasGrantedCcpaConsent: Boolean,
         privacyString: String?
     ) {
+        PartnerLogController.log(
+            if (hasGrantedCcpaConsent) CCPA_CONSENT_GRANTED
+            else CCPA_CONSENT_DENIED
+        )
+
         ccpaPrivacyString = privacyString
     }
 
@@ -203,6 +217,11 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
      * @param isSubjectToCoppa Whether the user is subject to COPPA.
      */
     override fun setUserSubjectToCoppa(context: Context, isSubjectToCoppa: Boolean) {
+        PartnerLogController.log(
+            if (isSubjectToCoppa) COPPA_SUBJECT
+            else COPPA_NOT_SUBJECT
+        )
+
         this.isSubjectToCoppa = isSubjectToCoppa
     }
 
