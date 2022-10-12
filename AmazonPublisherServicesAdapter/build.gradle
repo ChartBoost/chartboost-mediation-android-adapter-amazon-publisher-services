@@ -18,7 +18,7 @@ android {
         minSdk 21
         targetSdk 32
         versionCode 1
-        versionName "3.9.4.3.0"
+        versionName "3.9.5.7.0"
         buildConfigField "String", "HELIUM_APS_ADAPTER_VERSION", "\"$versionName\""
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
@@ -56,7 +56,7 @@ dependencies {
     // implementation 'com.chartboost:helium:3.0.0'
 
     //Partner SDK
-    implementation 'com.amazon.android:aps-sdk:9.4.3'
+    implementation 'com.amazon.android:aps-sdk:9.5.7'
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.0'
 
     //Partner SDK Dependencies
