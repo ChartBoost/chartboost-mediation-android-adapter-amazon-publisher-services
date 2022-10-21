@@ -76,10 +76,10 @@ dependencies {
 
     //Partner SDK
     implementation 'com.amazon.android:aps-sdk:9.5.7'
-    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.0'
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.4'
 
     //Partner SDK Dependencies
-    implementation 'androidx.appcompat:appcompat:1.4.2'
+    implementation 'androidx.appcompat:appcompat:1.5.1'
 
     //Tests
     testImplementation 'junit:junit:4.13.2'
