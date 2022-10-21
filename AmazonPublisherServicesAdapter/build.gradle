@@ -106,7 +106,7 @@ artifactory {
         }
 
         defaults {
-            publications('AdMobAdapter', 'aar')
+            publications('AmazonPublisherServicesAdapter', 'aar')
             publishArtifacts = true
             publishPom = true
         }
@@ -125,7 +125,7 @@ afterEvaluate {
                 version = project.hasProperty('snapshot') ? android.defaultConfig.versionName + rootProject.SNAPSHOT : android.defaultConfig.versionName
 
                 pom {
-                    name = "Helium Adapter AdMob"
+                    name = "Helium Adapter Amazon Publisher Services"
                     description = 'Better monetization. Powered by bidding'
                     url = 'https://www.chartboost.com/helium/'
 
