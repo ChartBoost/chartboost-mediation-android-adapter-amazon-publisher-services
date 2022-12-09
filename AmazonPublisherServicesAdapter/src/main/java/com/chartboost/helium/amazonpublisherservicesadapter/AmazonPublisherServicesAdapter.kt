@@ -136,11 +136,11 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                     Result.success(PartnerLogController.log(SETUP_SUCCEEDED))
                 } ?: run {
                 PartnerLogController.log(SETUP_FAILED, "Missing application ID.")
-                Result.failure(HeliumAdException(HeliumErrorCode.PARTNER_SDK_NOT_INITIALIZED))
+                Result.failure(HeliumAdException(HeliumError.HE_INITIALIZATION_FAILURE_INVALID_CREDENTIALS))
             }
         } catch (illegalArgumentException: IllegalArgumentException) {
             PartnerLogController.log(SETUP_FAILED, "${illegalArgumentException.message}")
-            Result.failure(HeliumAdException(HeliumErrorCode.PARTNER_SDK_NOT_INITIALIZED))
+            Result.failure(HeliumAdException(HeliumError.HE_INITIALIZATION_FAILURE_UNKNOWN))
         }
     }
 
@@ -373,7 +373,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
 
         if (isSubjectToCoppa) {
             PartnerLogController.log(LOAD_FAILED, "User subject to COPPA.")
-            return Result.failure(HeliumAdException(HeliumErrorCode.NO_FILL))
+            return Result.failure(HeliumAdException(HeliumError.HE_LOAD_FAILURE_PRIVACY_OPT_IN))
         }
 
         return when (request.format) {
@@ -381,7 +381,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
             AdFormat.INTERSTITIAL -> loadInterstitialAd(context, request, partnerAdListener)
             AdFormat.REWARDED -> {
                 PartnerLogController.log(LOAD_FAILED)
-                Result.failure(HeliumAdException(HeliumErrorCode.AD_FORMAT_NOT_SUPPORTED))
+                Result.failure(HeliumAdException(HeliumError.HE_LOAD_FAILURE_UNSUPPORTED_AD_FORMAT))
             }
         }
     }
@@ -399,7 +399,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
 
         if (isSubjectToCoppa) {
             PartnerLogController.log(SHOW_FAILED, "User subject to COPPA")
-            return Result.failure(HeliumAdException(HeliumErrorCode.PARTNER_ERROR))
+            return Result.failure(HeliumAdException(HeliumError.HE_SHOW_FAILURE_PRIVACY_OPT_IN))
         }
 
         return when (partnerAd.request.format) {
@@ -411,7 +411,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
             AdFormat.INTERSTITIAL -> showInterstitialAd(partnerAd)
             AdFormat.REWARDED -> {
                 PartnerLogController.log(SHOW_FAILED)
-                Result.failure(HeliumAdException(HeliumErrorCode.AD_FORMAT_NOT_SUPPORTED))
+                Result.failure(HeliumAdException(HeliumError.HE_LOAD_FAILURE_UNSUPPORTED_AD_FORMAT))
             }
         }
     }
@@ -472,7 +472,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
             placementToAdResponseMap.remove(placementName)
         } ?: run {
             PartnerLogController.log(LOAD_FAILED, "No ad response found.")
-            return Result.failure(HeliumAdException(HeliumErrorCode.NO_FILL))
+            return Result.failure(HeliumAdException(HeliumError.HE_LOAD_FAILURE_NO_FILL))
         }
 
         return suspendCoroutine { continuation ->
@@ -494,7 +494,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                     PartnerLogController.log(LOAD_FAILED)
                     continuation.resumeWith(
                         Result.failure(
-                            HeliumAdException(HeliumErrorCode.PARTNER_ERROR)
+                            HeliumAdException(HeliumError.HE_LOAD_FAILURE_UNKNOWN)
                         )
                     )
                 }
@@ -562,7 +562,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
             placementToAdResponseMap.remove(placementName)
         } ?: run {
             PartnerLogController.log(LOAD_FAILED, "No ad response found.")
-            return Result.failure(HeliumAdException(HeliumErrorCode.NO_FILL))
+            return Result.failure(HeliumAdException(HeliumError.HE_LOAD_FAILURE_NO_FILL))
         }
 
         return suspendCoroutine { continuation ->
@@ -584,7 +584,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                     PartnerLogController.log(LOAD_FAILED)
                     continuation.resumeWith(
                         Result.failure(
-                            HeliumAdException(HeliumErrorCode.PARTNER_ERROR)
+                            HeliumAdException(HeliumError.HE_LOAD_FAILURE_UNKNOWN)
                         )
                     )
                 }
@@ -654,11 +654,11 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                 }
             } ?: run {
                 PartnerLogController.log(SHOW_FAILED, "Ad is not DTBAdInterstitial.")
-                Result.failure(HeliumAdException(HeliumErrorCode.INTERNAL))
+                Result.failure(HeliumAdException(HeliumError.HE_SHOW_FAILURE_WRONG_RESOURCE_TYPE))
             }
         } ?: run {
             PartnerLogController.log(SHOW_FAILED, "Ad is null.")
-            Result.failure(HeliumAdException(HeliumErrorCode.INTERNAL))
+            Result.failure(HeliumAdException(HeliumError.HE_SHOW_FAILURE_AD_NOT_FOUND))
         }
     }
 
@@ -677,7 +677,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
             Result.success(partnerAd)
         } ?: run {
             PartnerLogController.log(INVALIDATE_FAILED, "Ad is null.")
-            Result.failure(HeliumAdException(HeliumErrorCode.INTERNAL))
+            Result.failure(HeliumAdException(HeliumError.HE_INVALIDATE_FAILURE_AD_NOT_FOUND))
         }
     }
 }
