@@ -66,11 +66,6 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
     private val placementToPreBidSettings: MutableMap<String, PreBidSettings> = mutableMapOf()
 
     /**
-     * Indicate whether GDPR currently applies to the user.
-     */
-    private var gdprApplies = false
-
-    /**
      * Indicate whether the user has given CCPA consent.
      */
     private var ccpaPrivacyString: String? = null
@@ -145,46 +140,43 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
     }
 
     /**
-     * Notify APS as to whether GDPR applies.
+     * Notify the Amazon Publisher Services SDK of the GDPR applicability and consent status.
      *
      * @param context The current [Context].
-     * @param gdprApplies Whether GDPR applies or not.
+     * @param applies Whether GDPR applies or not.
+     * @param gdprConsentStatus The user's GDPR consent status.
      */
-    override fun setGdprApplies(context: Context, gdprApplies: Boolean) {
-        PartnerLogController.log(if (gdprApplies) GDPR_APPLICABLE else GDPR_NOT_APPLICABLE)
+    override fun setGdpr(
+        context: Context,
+        applies: Boolean?,
+        gdprConsentStatus: GdprConsentStatus
+    ) {
+        PartnerLogController.log(
+            when (applies) {
+                true -> GDPR_APPLICABLE
+                false -> GDPR_NOT_APPLICABLE
+                else -> GDPR_UNKNOWN
+            }
+        )
+
+        PartnerLogController.log(
+            when (gdprConsentStatus) {
+                GdprConsentStatus.GDPR_CONSENT_UNKNOWN -> GDPR_CONSENT_UNKNOWN
+                GdprConsentStatus.GDPR_CONSENT_GRANTED -> GDPR_CONSENT_GRANTED
+                GdprConsentStatus.GDPR_CONSENT_DENIED -> GDPR_CONSENT_DENIED
+            }
+        )
 
         AdRegistration.setCMPFlavor(AdRegistration.CMPFlavor.CMP_NOT_DEFINED)
-        this.gdprApplies = gdprApplies
-    }
 
-    /**
-     * Notify APS of user GDPR consent.
-     *
-     * @param context The current [Context]
-     * @param gdprConsentStatus The user's current GDPR consent status.
-     */
-    override fun setGdprConsentStatus(context: Context, gdprConsentStatus: GdprConsentStatus) {
-        if (gdprApplies) {
-            when (gdprConsentStatus) {
-                GdprConsentStatus.GDPR_CONSENT_GRANTED -> {
-                    PartnerLogController.log(GDPR_CONSENT_GRANTED)
-                    AdRegistration.setConsentStatus(
-                        AdRegistration.ConsentStatus.EXPLICIT_YES
-                    )
+        if (applies == true) {
+            AdRegistration.setConsentStatus(
+                when (gdprConsentStatus) {
+                    GdprConsentStatus.GDPR_CONSENT_UNKNOWN -> AdRegistration.ConsentStatus.UNKNOWN
+                    GdprConsentStatus.GDPR_CONSENT_GRANTED -> AdRegistration.ConsentStatus.EXPLICIT_YES
+                    GdprConsentStatus.GDPR_CONSENT_DENIED -> AdRegistration.ConsentStatus.EXPLICIT_NO
                 }
-                GdprConsentStatus.GDPR_CONSENT_DENIED -> {
-                    PartnerLogController.log(GDPR_CONSENT_DENIED)
-                    AdRegistration.setConsentStatus(
-                        AdRegistration.ConsentStatus.EXPLICIT_NO
-                    )
-                }
-                GdprConsentStatus.GDPR_CONSENT_UNKNOWN -> {
-                    PartnerLogController.log(GDPR_CONSENT_UNKNOWN)
-                    AdRegistration.setConsentStatus(
-                        AdRegistration.ConsentStatus.UNKNOWN
-                    )
-                }
-            }
+            )
         } else {
             AdRegistration.setConsentStatus(AdRegistration.ConsentStatus.CONSENT_NOT_DEFINED)
         }
