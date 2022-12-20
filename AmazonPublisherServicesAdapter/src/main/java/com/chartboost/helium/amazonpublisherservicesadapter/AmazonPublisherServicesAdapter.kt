@@ -11,6 +11,8 @@ import kotlinx.coroutines.Dispatchers.Main
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import org.json.JSONException
+import org.json.JSONObject
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 
@@ -46,7 +48,50 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
          * Key for parsing the APS SDK application ID.
          */
         private const val APS_APPLICATION_ID_KEY = "application_id"
+
+        /**
+         * Key for the pre bids array.
+         */
+        private const val PREBIDS_KEY = "prebids"
+
+        /**
+         * Key for the helium placement in a pre bid.
+         */
+        private const val HELIUM_PLACEMENT_KEY = "helium_placement"
+
+        /**
+         * Key for the partner placement in a pre bid.
+         */
+        private const val PARTNER_PLACEMENT_KEY = "partner_placement"
+
+        /**
+         * Key for the width in a pre bid.
+         * This is optional and will default to 0 if it doesn't exist.
+         */
+        private const val WIDTH_KEY = "width"
+
+        /**
+         * Key for the height in a pre bid.
+         * This is optional and will default to 0 if it doesn't exist.
+         */
+        private const val HEIGHT_KEY = "height"
+
+        /**
+         * Key for whether or not video is acceptable in a pre bid.
+         * This is optional and will default to false if it doesn't exist.
+         */
+        private const val IS_VIDEO_KEY = "video"
     }
+
+    /**
+     * Data class to store all the pre bid settings from the configuration.
+     */
+    private data class PreBidSettings(
+        val partnerPlacement: String,
+        val width: Int,
+        val height: Int,
+        val isVideo: Boolean
+    )
 
     /**
      * A lambda to call for successful APS ad shows.
@@ -133,6 +178,13 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                     // TODO: Remove once pipes have proven to function.
                     AdRegistration.enableLogging(true, DTBLogLevel.All)
 
+                    val preBidArray = partnerConfiguration.credentials.optJSONArray(PREBIDS_KEY)
+                    for (i in 0 until (preBidArray?.length() ?: 0)) {
+                        withContext(Main) {
+                            addPrebid(preBidArray?.optJSONObject(i))
+                        }
+                    }
+
                     Result.success(PartnerLogController.log(SETUP_SUCCEEDED))
                 } ?: run {
                 PartnerLogController.log(SETUP_FAILED, "Missing application ID.")
@@ -141,6 +193,26 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
         } catch (illegalArgumentException: IllegalArgumentException) {
             PartnerLogController.log(SETUP_FAILED, "${illegalArgumentException.message}")
             Result.failure(HeliumAdException(HeliumError.HE_INITIALIZATION_FAILURE_UNKNOWN))
+        }
+    }
+
+    private fun addPrebid(preBid: JSONObject?) {
+        preBid ?: return
+        try {
+            val heliumPlacement = preBid.getString(HELIUM_PLACEMENT_KEY)
+            val partnerPlacement = preBid.getString(PARTNER_PLACEMENT_KEY)
+            val width = preBid.optInt(WIDTH_KEY, 0)
+            val height = preBid.optInt(HEIGHT_KEY, 0)
+            val isVideo = preBid.optBoolean(IS_VIDEO_KEY, false)
+            placementToPreBidSettings[heliumPlacement] =
+                PreBidSettings(
+                    partnerPlacement = partnerPlacement,
+                    width = width,
+                    height = height,
+                    isVideo = isVideo
+                )
+        } catch (jsonException: JSONException) {
+            PartnerLogController.log(CUSTOM, "Failed to add pre bid for ${preBid.toString(1)}")
         }
     }
 
@@ -238,16 +310,13 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
         PartnerLogController.log(BIDDER_INFO_FETCH_STARTED)
 
         val placement = request.heliumPlacement
-        val adResponse = withContext(Main) {
+        withContext(Main) {
             placementToAdResponseMap[placement]
-        } ?: run {
-            PartnerLogController.log(BIDDER_INFO_FETCH_FAILED, "No ad response found.")
-            return mapOf()
-        }
-
-        SDKUtilities.getPricePoint(adResponse)?.let {
-            if (it.isNotEmpty()) {
-                return mutableMapOf(placement to it)
+        }?.let { dtbAdResponse ->
+            SDKUtilities.getPricePoint(dtbAdResponse)?.let {
+                if (it.isNotEmpty()) {
+                    return mutableMapOf(placement to it)
+                }
             }
         }
 
@@ -264,7 +333,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
         return suspendCoroutine { continuation ->
 
             val adRequest = DTBAdRequest()
-            val isVideo = preBidSettings.video
+            val isVideo = preBidSettings.isVideo
 
             if (preBidSettings.partnerPlacement.isEmpty()) {
                 continuation.resume(mapOf())
@@ -564,13 +633,14 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
         }
 
         return suspendCoroutine { continuation ->
-            DTBAdInterstitial(context, object : DTBAdInterstitialListener {
+            lateinit var interstitial: DTBAdInterstitial
+            interstitial = DTBAdInterstitial(context, object : DTBAdInterstitialListener {
                 override fun onAdLoaded(adView: View?) {
                     PartnerLogController.log(LOAD_SUCCEEDED)
                     continuation.resume(
                         Result.success(
                             PartnerAd(
-                                ad = adView,
+                                ad = interstitial,
                                 details = emptyMap(),
                                 request = request
                             )
@@ -591,7 +661,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                     PartnerLogController.log(DID_CLICK)
                     partnerAdListener.onPartnerAdClicked(
                         PartnerAd(
-                            ad = adView,
+                            ad = interstitial,
                             details = emptyMap(),
                             request = request
                         )
@@ -610,7 +680,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                     PartnerLogController.log(DID_DISMISS)
                     partnerAdListener.onPartnerAdDismissed(
                         PartnerAd(
-                            ad = adView,
+                            ad = interstitial,
                             details = emptyMap(),
                             request = request
                         ),
@@ -622,14 +692,16 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                     PartnerLogController.log(DID_TRACK_IMPRESSION)
                     partnerAdListener.onPartnerAdImpression(
                         PartnerAd(
-                            ad = adView,
+                            ad = interstitial,
                             details = emptyMap(),
                             request = request
                         )
                     )
                 }
 
-            }).fetchAd(SDKUtilities.getBidInfo(adResponse))
+            })
+
+            interstitial.fetchAd(SDKUtilities.getBidInfo(adResponse))
         }
     }
 
