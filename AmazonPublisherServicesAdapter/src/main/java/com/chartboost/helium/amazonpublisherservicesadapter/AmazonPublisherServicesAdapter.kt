@@ -11,8 +11,10 @@ import kotlinx.coroutines.Dispatchers.Main
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
-import org.json.JSONException
-import org.json.JSONObject
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.decodeFromJsonElement
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 
@@ -166,44 +168,45 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
         partnerConfiguration: PartnerConfiguration
     ): Result<Unit> {
         PartnerLogController.log(SETUP_STARTED)
-        return try {
-            partnerConfiguration.credentials.optString(APS_APPLICATION_ID_KEY).trim()
-                .takeIf { it.isNotEmpty() }?.let { appKey ->
-                    AdRegistration.getInstance(appKey, context)
+        return Json.decodeFromJsonElement<String>(
+            (partnerConfiguration.credentials as JsonObject).getValue(APS_APPLICATION_ID_KEY)
+        )
+            .trim()
+            .takeIf { it.isNotEmpty() }?.let { appKey ->
+                AdRegistration.getInstance(appKey, context)
 
-                    AdRegistration.setAdNetworkInfo(DTBAdNetworkInfo(DTBAdNetwork.OTHER))
-                    AdRegistration.setMRAIDSupportedVersions(arrayOf("1.0", "2.0", "3.0"))
-                    AdRegistration.setMRAIDPolicy(MRAIDPolicy.CUSTOM)
+                AdRegistration.setAdNetworkInfo(DTBAdNetworkInfo(DTBAdNetwork.OTHER))
+                AdRegistration.setMRAIDSupportedVersions(arrayOf("1.0", "2.0", "3.0"))
+                AdRegistration.setMRAIDPolicy(MRAIDPolicy.CUSTOM)
 
-                    // TODO: Remove once pipes have proven to function.
-                    AdRegistration.enableLogging(true, DTBLogLevel.All)
+                // TODO: Remove once pipes have proven to function.
+                AdRegistration.enableLogging(true, DTBLogLevel.All)
 
-                    val preBidArray = partnerConfiguration.credentials.optJSONArray(PREBIDS_KEY)
-                    for (i in 0 until (preBidArray?.length() ?: 0)) {
-                        withContext(Main) {
-                            addPrebid(preBidArray?.optJSONObject(i))
-                        }
+                val preBidArray = Json.decodeFromJsonElement<JsonArray>(
+                    (partnerConfiguration.credentials as JsonObject).getValue(PREBIDS_KEY)
+                )
+                preBidArray.forEach {
+                    withContext(Main) {
+                        addPrebid(Json.decodeFromJsonElement(it))
                     }
+                }
 
-                    Result.success(PartnerLogController.log(SETUP_SUCCEEDED))
-                } ?: run {
-                PartnerLogController.log(SETUP_FAILED, "Missing application ID.")
-                Result.failure(HeliumAdException(HeliumError.HE_INITIALIZATION_FAILURE_INVALID_CREDENTIALS))
-            }
-        } catch (illegalArgumentException: IllegalArgumentException) {
-            PartnerLogController.log(SETUP_FAILED, "${illegalArgumentException.message}")
-            Result.failure(HeliumAdException(HeliumError.HE_INITIALIZATION_FAILURE_UNKNOWN))
+                Result.success(PartnerLogController.log(SETUP_SUCCEEDED))
+            } ?: run {
+            PartnerLogController.log(SETUP_FAILED, "Missing application ID.")
+            Result.failure(HeliumAdException(HeliumError.HE_INITIALIZATION_FAILURE_INVALID_CREDENTIALS))
         }
     }
 
-    private fun addPrebid(preBid: JSONObject?) {
-        preBid ?: return
-        try {
-            val heliumPlacement = preBid.getString(HELIUM_PLACEMENT_KEY)
-            val partnerPlacement = preBid.getString(PARTNER_PLACEMENT_KEY)
-            val width = preBid.optInt(WIDTH_KEY, 0)
-            val height = preBid.optInt(HEIGHT_KEY, 0)
-            val isVideo = preBid.optBoolean(IS_VIDEO_KEY, false)
+    private fun addPrebid(preBid: JsonObject?) {
+        preBid?.apply {
+            val heliumPlacement = Json.decodeFromJsonElement<String>(getValue(HELIUM_PLACEMENT_KEY))
+            val partnerPlacement =
+                Json.decodeFromJsonElement<String>(getValue(PARTNER_PLACEMENT_KEY))
+            val width = Json.decodeFromJsonElement(getValue(WIDTH_KEY)) ?: 0
+            val height = Json.decodeFromJsonElement(getValue(HEIGHT_KEY)) ?: 0
+            val isVideo = Json.decodeFromJsonElement(getValue(IS_VIDEO_KEY)) ?: false
+
             placementToPreBidSettings[heliumPlacement] =
                 PreBidSettings(
                     partnerPlacement = partnerPlacement,
@@ -211,8 +214,6 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                     height = height,
                     isVideo = isVideo
                 )
-        } catch (jsonException: JSONException) {
-            PartnerLogController.log(CUSTOM, "Failed to add pre bid for ${preBid.toString(1)}")
         }
     }
 
