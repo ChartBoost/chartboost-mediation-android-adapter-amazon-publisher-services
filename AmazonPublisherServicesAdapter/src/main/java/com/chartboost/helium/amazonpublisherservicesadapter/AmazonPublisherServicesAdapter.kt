@@ -207,12 +207,24 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
 
     private fun addPrebid(preBid: JsonObject?) {
         preBid?.apply {
-            val heliumPlacement = Json.decodeFromJsonElement<String>(getValue(HELIUM_PLACEMENT_KEY))
-            val partnerPlacement =
-                Json.decodeFromJsonElement<String>(getValue(PARTNER_PLACEMENT_KEY))
-            val width = Json.decodeFromJsonElement(getValue(WIDTH_KEY)) ?: 0
-            val height = Json.decodeFromJsonElement(getValue(HEIGHT_KEY)) ?: 0
-            val isVideo = Json.decodeFromJsonElement(getValue(IS_VIDEO_KEY)) ?: false
+            val heliumPlacement = getOrDefault(HELIUM_PLACEMENT_KEY, null)?.let {
+                Json.decodeFromJsonElement(it)
+            } ?: ""
+            val partnerPlacement = getOrDefault(PARTNER_PLACEMENT_KEY, null)?.let {
+                Json.decodeFromJsonElement(it)
+            } ?: ""
+
+            val width = getOrDefault(WIDTH_KEY, null)?.let {
+                Json.decodeFromJsonElement(it)
+            } ?: 0
+
+            val height = getOrDefault(HEIGHT_KEY, null)?.let {
+                Json.decodeFromJsonElement(it)
+            } ?: 0
+
+            val isVideo = getOrDefault(IS_VIDEO_KEY, null)?.let {
+                Json.decodeFromJsonElement(it)
+            } ?: false
 
             placementToPreBidSettings[heliumPlacement] =
                 PreBidSettings(
