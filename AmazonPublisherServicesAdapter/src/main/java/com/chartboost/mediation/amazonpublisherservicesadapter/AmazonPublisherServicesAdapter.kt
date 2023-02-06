@@ -5,7 +5,7 @@
  * license that can be found in the LICENSE file.
  */
 
-package com.chartboost.helium.amazonpublisherservicesadapter
+package com.chartboost.mediation.amazonpublisherservicesadapter
 
 import android.content.Context
 import android.view.View
@@ -26,7 +26,7 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 
 /**
- * The Helium Amazon Publisher Services (APS) adapter.
+ * The Chartboost Mediation Amazon Publisher Services (APS) adapter.
  */
 class AmazonPublisherServicesAdapter : PartnerAdapter {
     companion object {
@@ -64,9 +64,9 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
         private const val PREBIDS_KEY = "prebids"
 
         /**
-         * Key for the helium placement in a pre bid.
+         * Key for the Chartboost placement in a pre bid.
          */
-        private const val HELIUM_PLACEMENT_KEY = "helium_placement"
+        private const val CHARTBOOST_PLACEMENT_KEY = "helium_placement"
 
         /**
          * Key for the partner placement in a pre bid.
@@ -108,7 +108,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
     private var onShowSuccess: () -> Unit = {}
 
     /**
-     * String Helium placement name to the APS prebid.
+     * String Chartboost placement name to the APS prebid.
      */
     private val placementToAdResponseMap: MutableMap<String, DTBAdResponse?> =
         mutableMapOf()
@@ -139,16 +139,16 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
      * Get the APS adapter version.
      *
      * You may version the adapter using any preferred convention, but it is recommended to apply the
-     * following format if the adapter will be published by Helium:
+     * following format if the adapter will be published by Chartboost Mediation:
      *
-     * Helium.Partner.Adapter
+     * Chartboost Mediation.Partner.Adapter
      *
-     * "Helium" represents the Helium SDK’s major version that is compatible with this adapter. This must be 1 digit.
+     * "Chartboost Mediation" represents the Chartboost Mediation SDK’s major version that is compatible with this adapter. This must be 1 digit.
      * "Partner" represents the partner SDK’s major.minor.patch.x (where x is optional) version that is compatible with this adapter. This can be 3-4 digits.
      * "Adapter" represents this adapter’s version (starting with 0), which resets to 0 when the partner SDK’s version changes. This must be 1 digit.
      */
     override val adapterVersion: String
-        get() = BuildConfig.HELIUM_APS_ADAPTER_VERSION
+        get() = BuildConfig.CHARTBOOST_MEDIATION_APS_ADAPTER_VERSION
 
     /**
      * Get the partner name for internal uses.
@@ -201,13 +201,13 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                 Result.success(PartnerLogController.log(SETUP_SUCCEEDED))
             } ?: run {
             PartnerLogController.log(SETUP_FAILED, "Missing application ID.")
-            Result.failure(HeliumAdException(HeliumError.HE_INITIALIZATION_FAILURE_INVALID_CREDENTIALS))
+            Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_INITIALIZATION_FAILURE_INVALID_CREDENTIALS))
         }
     }
 
     private fun addPrebid(preBid: JsonObject?) {
         preBid?.apply {
-            val heliumPlacement = get(HELIUM_PLACEMENT_KEY)?.let {
+            val heliumPlacement = get(CHARTBOOST_PLACEMENT_KEY)?.let {
                 Json.decodeFromJsonElement(it)
             } ?: ""
             val partnerPlacement = get(PARTNER_PLACEMENT_KEY)?.let {
@@ -226,7 +226,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                 Json.decodeFromJsonElement(it)
             } ?: false
 
-            placementToPreBidSettings[heliumPlacement] =
+            placementToPreBidSettings[chartboostPlacement] =
                 PreBidSettings(
                     partnerPlacement = partnerPlacement,
                     width = width,
@@ -329,7 +329,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
         // TODO: Remove PreBidSettings and move settings to setUp [HB-4223](https://chartboost.atlassian.net/browse/HB-4223)
         PartnerLogController.log(BIDDER_INFO_FETCH_STARTED)
 
-        val placement = request.heliumPlacement
+        val placement = request.chartboostPlacement
         withContext(Main) {
             placementToAdResponseMap[placement]
         }?.let { dtbAdResponse ->
@@ -446,7 +446,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
      *
      * @param context The current [Context].
      * @param request An [PartnerAdLoadRequest] instance containing relevant data for the current ad load call.
-     * @param partnerAdListener A [PartnerAdListener] to notify Helium of ad events.
+     * @param partnerAdListener A [PartnerAdListener] to notify Chartboost Mediation of ad events.
      *
      * @return Result.success(PartnerAd) if the ad was successfully loaded, Result.failure(Exception) otherwise.
      */
@@ -459,7 +459,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
 
         if (isSubjectToCoppa) {
             PartnerLogController.log(LOAD_FAILED, "User subject to COPPA.")
-            return Result.failure(HeliumAdException(HeliumError.HE_LOAD_FAILURE_PRIVACY_OPT_IN))
+            return Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_LOAD_FAILURE_PRIVACY_OPT_IN))
         }
 
         return when (request.format) {
@@ -467,7 +467,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
             AdFormat.INTERSTITIAL -> loadInterstitialAd(context, request, partnerAdListener)
             AdFormat.REWARDED -> {
                 PartnerLogController.log(LOAD_FAILED)
-                Result.failure(HeliumAdException(HeliumError.HE_LOAD_FAILURE_UNSUPPORTED_AD_FORMAT))
+                Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_LOAD_FAILURE_UNSUPPORTED_AD_FORMAT))
             }
         }
     }
@@ -485,7 +485,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
 
         if (isSubjectToCoppa) {
             PartnerLogController.log(SHOW_FAILED, "User subject to COPPA")
-            return Result.failure(HeliumAdException(HeliumError.HE_SHOW_FAILURE_PRIVACY_OPT_IN))
+            return Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_SHOW_FAILURE_PRIVACY_OPT_IN))
         }
 
         return when (partnerAd.request.format) {
@@ -497,7 +497,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
             AdFormat.INTERSTITIAL -> showInterstitialAd(partnerAd)
             AdFormat.REWARDED -> {
                 PartnerLogController.log(SHOW_FAILED)
-                Result.failure(HeliumAdException(HeliumError.HE_LOAD_FAILURE_UNSUPPORTED_AD_FORMAT))
+                Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_LOAD_FAILURE_UNSUPPORTED_AD_FORMAT))
             }
         }
     }
@@ -544,7 +544,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
      *
      * @param context The current [Context].
      * @param request An [PartnerAdLoadRequest] instance containing relevant data for the current ad load call.
-     * @param partnerAdListener A [PartnerAdListener] to notify Helium of ad events.
+     * @param partnerAdListener A [PartnerAdListener] to notify Chartboost Mediation of ad events.
      *
      * @return Result.success(PartnerAd) if the ad was successfully loaded, Result.failure(Exception) otherwise.
      */
@@ -553,12 +553,12 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
         request: PartnerAdLoadRequest,
         partnerAdListener: PartnerAdListener
     ): Result<PartnerAd> {
-        val placementName = request.heliumPlacement
+        val placementName = request.chartboostPlacement
         val adResponse = withContext(Main) {
             placementToAdResponseMap.remove(placementName)
         } ?: run {
             PartnerLogController.log(LOAD_FAILED, "No ad response found.")
-            return Result.failure(HeliumAdException(HeliumError.HE_LOAD_FAILURE_NO_FILL))
+            return Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_LOAD_FAILURE_NO_FILL))
         }
 
         return suspendCoroutine { continuation ->
@@ -580,7 +580,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                     PartnerLogController.log(LOAD_FAILED)
                     continuation.resumeWith(
                         Result.failure(
-                            HeliumAdException(HeliumError.HE_LOAD_FAILURE_UNKNOWN)
+                            ChartboostMediationAdException(ChartboostMediationError.CM_LOAD_FAILURE_UNKNOWN)
                         )
                     )
                 }
@@ -635,7 +635,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
      *
      * @param context The current [Context].
      * @param request An [PartnerAdLoadRequest] instance containing data to load the ad with.
-     * @param partnerAdListener A [PartnerAdListener] to notify Helium of ad events.
+     * @param partnerAdListener A [PartnerAdListener] to notify Chartboost Mediation of ad events.
      *
      * @return Result.success(PartnerAd) if the ad was successfully loaded, Result.failure(Exception) otherwise.
      */
@@ -644,12 +644,12 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
         request: PartnerAdLoadRequest,
         partnerAdListener: PartnerAdListener
     ): Result<PartnerAd> {
-        val placementName = request.heliumPlacement
+        val placementName = request.chartboostPlacement
         val adResponse = withContext(Main) {
             placementToAdResponseMap.remove(placementName)
         } ?: run {
             PartnerLogController.log(LOAD_FAILED, "No ad response found.")
-            return Result.failure(HeliumAdException(HeliumError.HE_LOAD_FAILURE_NO_FILL))
+            return Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_LOAD_FAILURE_NO_FILL))
         }
 
         return suspendCoroutine { continuation ->
@@ -672,7 +672,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                     PartnerLogController.log(LOAD_FAILED)
                     continuation.resumeWith(
                         Result.failure(
-                            HeliumAdException(HeliumError.HE_LOAD_FAILURE_UNKNOWN)
+                            ChartboostMediationAdException(ChartboostMediationError.CM_LOAD_FAILURE_UNKNOWN)
                         )
                     )
                 }
@@ -744,11 +744,11 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                 }
             } ?: run {
                 PartnerLogController.log(SHOW_FAILED, "Ad is not DTBAdInterstitial.")
-                Result.failure(HeliumAdException(HeliumError.HE_SHOW_FAILURE_WRONG_RESOURCE_TYPE))
+                Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_SHOW_FAILURE_WRONG_RESOURCE_TYPE))
             }
         } ?: run {
             PartnerLogController.log(SHOW_FAILED, "Ad is null.")
-            Result.failure(HeliumAdException(HeliumError.HE_SHOW_FAILURE_AD_NOT_FOUND))
+            Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_SHOW_FAILURE_AD_NOT_FOUND))
         }
     }
 
@@ -767,7 +767,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
             Result.success(partnerAd)
         } ?: run {
             PartnerLogController.log(INVALIDATE_FAILED, "Ad is null.")
-            Result.failure(HeliumAdException(HeliumError.HE_INVALIDATE_FAILURE_AD_NOT_FOUND))
+            Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_INVALIDATE_FAILURE_AD_NOT_FOUND))
         }
     }
 }
