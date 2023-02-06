@@ -207,7 +207,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
 
     private fun addPrebid(preBid: JsonObject?) {
         preBid?.apply {
-            val heliumPlacement = get(CHARTBOOST_PLACEMENT_KEY)?.let {
+            val chartboostPlacement = get(CHARTBOOST_PLACEMENT_KEY)?.let { 
                 Json.decodeFromJsonElement(it)
             } ?: ""
             val partnerPlacement = get(PARTNER_PLACEMENT_KEY)?.let {
