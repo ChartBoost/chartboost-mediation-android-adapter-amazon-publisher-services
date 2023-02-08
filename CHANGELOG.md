@@ -4,4 +4,4 @@ Note the first digit of every adapter version corresponds to the major version o
 Adapters are compatible with any Chartboost Mediation SDK version within that major version.
 
 ### 4.9.6.2.0
-- This version of the adapters has been certified with Amazon Publisher Services SDK 9.6.2.
+- This version of the adapter has been certified with Amazon Publisher Services SDK 9.6.2.
