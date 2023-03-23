@@ -465,10 +465,6 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
         return when (request.format) {
             AdFormat.BANNER -> loadBannerAd(context, request, partnerAdListener)
             AdFormat.INTERSTITIAL -> loadInterstitialAd(context, request, partnerAdListener)
-            AdFormat.REWARDED -> {
-                PartnerLogController.log(LOAD_FAILED)
-                Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_LOAD_FAILURE_UNSUPPORTED_AD_FORMAT))
-            }
             else -> {
                 PartnerLogController.log(LOAD_FAILED)
                 Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_LOAD_FAILURE_UNSUPPORTED_AD_FORMAT))
@@ -499,12 +495,8 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                 Result.success(partnerAd)
             }
             AdFormat.INTERSTITIAL -> showInterstitialAd(partnerAd)
-            AdFormat.REWARDED -> {
-                PartnerLogController.log(SHOW_FAILED)
-                Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_LOAD_FAILURE_UNSUPPORTED_AD_FORMAT))
-            }
             else -> {
-                PartnerLogController.log(LOAD_FAILED)
+                PartnerLogController.log(SHOW_FAILED)
                 Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_SHOW_FAILURE_UNSUPPORTED_AD_FORMAT))
             }
         }
