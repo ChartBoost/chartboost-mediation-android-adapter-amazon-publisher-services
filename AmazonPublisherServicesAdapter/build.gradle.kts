@@ -24,7 +24,7 @@ repositories {
             password = System.getenv("JFROG_PASS")
         }
     }
-    maven("https://cboost.jfrog.io/artifactory/mediate/")
+    maven("https://cboost.jfrog.io/artifactory/chartboost-mediation/")
 }
 
 android {
@@ -35,7 +35,7 @@ android {
         minSdk = 21
         targetSdk = 33
         // If you touch the following line, don't forget to update scripts/get_rc_version.zsh
-        android.defaultConfig.versionName = System.getenv("VERSION_OVERRIDE") ?: "4.9.6.2.0"
+        android.defaultConfig.versionName = System.getenv("VERSION_OVERRIDE") ?: "4.9.7.0.1"
         buildConfigField("String", "CHARTBOOST_MEDIATION_APS_ADAPTER_VERSION", "\"${android.defaultConfig.versionName}\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -67,10 +67,10 @@ dependencies {
 
     // For external usage, please use the following production dependency.
     // You may choose a different release version.
-    "remoteImplementation"("com.chartboost:chartboost-mediation-sdk:4.+")
+    "remoteImplementation"("com.chartboost:chartboost-mediation-sdk:4.0.0")
 
     //Partner SDK
-    implementation("com.amazon.android:aps-sdk:9.6.2")
+    implementation("com.amazon.android:aps-sdk:9.7.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.4")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.4.1")
 
