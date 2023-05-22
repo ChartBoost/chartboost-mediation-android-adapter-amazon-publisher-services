@@ -415,7 +415,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
         preBidSettings: PreBidSettings
     ) {
         return when (format) {
-            AdFormat.INTERSTITIAL -> {
+            AdFormat.INTERSTITIAL, AdFormat.REWARDED -> {
                 adRequest.setSizes(
                     if (isVideo) (DTBAdSize.DTBVideo(
                         preBidSettings.width,
@@ -464,7 +464,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
 
         return when (request.format) {
             AdFormat.BANNER -> loadBannerAd(context, request, partnerAdListener)
-            AdFormat.INTERSTITIAL -> loadInterstitialAd(context, request, partnerAdListener)
+            AdFormat.INTERSTITIAL, AdFormat.REWARDED -> loadFullScreenAd(context, request, partnerAdListener)
             else -> {
                 PartnerLogController.log(LOAD_FAILED)
                 Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_LOAD_FAILURE_UNSUPPORTED_AD_FORMAT))
@@ -494,7 +494,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                 PartnerLogController.log(SHOW_SUCCEEDED)
                 Result.success(partnerAd)
             }
-            AdFormat.INTERSTITIAL -> showInterstitialAd(partnerAd)
+            AdFormat.INTERSTITIAL, AdFormat.REWARDED -> showFullscreenAd(partnerAd)
             else -> {
                 PartnerLogController.log(SHOW_FAILED)
                 Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_SHOW_FAILURE_UNSUPPORTED_AD_FORMAT))
@@ -631,7 +631,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
     }
 
     /**
-     * Attempt to load an APS interstitial ad.
+     * Attempt to load an APS fullscreen ad.
      *
      * @param context The current [Context].
      * @param request An [PartnerAdLoadRequest] instance containing data to load the ad with.
@@ -639,7 +639,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
      *
      * @return Result.success(PartnerAd) if the ad was successfully loaded, Result.failure(Exception) otherwise.
      */
-    private suspend fun loadInterstitialAd(
+    private suspend fun loadFullScreenAd(
         context: Context,
         request: PartnerAdLoadRequest,
         partnerAdListener: PartnerAdListener
@@ -653,14 +653,14 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
         }
 
         return suspendCoroutine { continuation ->
-            lateinit var interstitial: DTBAdInterstitial
-            interstitial = DTBAdInterstitial(context, object : DTBAdInterstitialListener {
+            lateinit var fullscreenAd: DTBAdInterstitial
+            fullscreenAd = DTBAdInterstitial(context, object : DTBAdInterstitialListener {
                 override fun onAdLoaded(adView: View?) {
                     PartnerLogController.log(LOAD_SUCCEEDED)
                     continuation.resume(
                         Result.success(
                             PartnerAd(
-                                ad = interstitial,
+                                ad = fullscreenAd,
                                 details = emptyMap(),
                                 request = request
                             )
@@ -681,7 +681,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                     PartnerLogController.log(DID_CLICK)
                     partnerAdListener.onPartnerAdClicked(
                         PartnerAd(
-                            ad = interstitial,
+                            ad = fullscreenAd,
                             details = emptyMap(),
                             request = request
                         )
@@ -700,7 +700,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                     PartnerLogController.log(DID_DISMISS)
                     partnerAdListener.onPartnerAdDismissed(
                         PartnerAd(
-                            ad = interstitial,
+                            ad = fullscreenAd,
                             details = emptyMap(),
                             request = request
                         ),
@@ -712,27 +712,39 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                     PartnerLogController.log(DID_TRACK_IMPRESSION)
                     partnerAdListener.onPartnerAdImpression(
                         PartnerAd(
-                            ad = interstitial,
+                            ad = fullscreenAd,
                             details = emptyMap(),
                             request = request
                         )
                     )
                 }
 
+                override fun onVideoCompleted(adView: View?) {
+                    if (request.format == AdFormat.REWARDED) {
+                        PartnerLogController.log(DID_REWARD)
+                        partnerAdListener.onPartnerAdRewarded(
+                            PartnerAd(
+                                ad = fullscreenAd,
+                                details = emptyMap(),
+                                request = request
+                            )
+                        )
+                    }
+                }
             })
 
-            interstitial.fetchAd(SDKUtilities.getBidInfo(adResponse))
+            fullscreenAd.fetchAd(SDKUtilities.getBidInfo(adResponse))
         }
     }
 
     /**
-     * Attempt to show an APS interstitial ad.
+     * Attempt to show an APS fullscreen ad.
      *
      * @param partnerAd The [PartnerAd] object containing the APS ad to be shown.
      *
      * @return Result.success(PartnerAd) if the ad was successfully shown, Result.failure(Exception) otherwise.
      */
-    private suspend fun showInterstitialAd(partnerAd: PartnerAd): Result<PartnerAd> {
+    private suspend fun showFullscreenAd(partnerAd: PartnerAd): Result<PartnerAd> {
         return (partnerAd.ad)?.let { ad ->
             (ad as? DTBAdInterstitial)?.let {
                 suspendCancellableCoroutine { continuation ->
