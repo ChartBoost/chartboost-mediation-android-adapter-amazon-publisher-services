@@ -586,14 +586,16 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                 }
 
                 override fun onAdClicked(adView: View?) {
-                    PartnerLogController.log(DID_CLICK)
-                    partnerAdListener.onPartnerAdClicked(
-                        PartnerAd(
-                            ad = adView,
-                            details = emptyMap(),
-                            request = request
+                    CoroutineScope(Main).launch {
+                        PartnerLogController.log(DID_CLICK)
+                        partnerAdListener.onPartnerAdClicked(
+                            PartnerAd(
+                                ad = adView,
+                                details = emptyMap(),
+                                request = request
+                            )
                         )
-                    )
+                    }
                 }
 
                 override fun onAdLeftApplication(adView: View?) {
@@ -605,26 +607,30 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                 }
 
                 override fun onAdClosed(adView: View?) {
-                    PartnerLogController.log(DID_DISMISS)
-                    partnerAdListener.onPartnerAdDismissed(
-                        PartnerAd(
-                            ad = adView,
-                            details = emptyMap(),
-                            request = request
-                        ),
-                        null
-                    )
+                    CoroutineScope(Main).launch {
+                        PartnerLogController.log(DID_DISMISS)
+                        partnerAdListener.onPartnerAdDismissed(
+                            PartnerAd(
+                                ad = adView,
+                                details = emptyMap(),
+                                request = request
+                            ),
+                            null
+                        )
+                    }
                 }
 
                 override fun onImpressionFired(adView: View?) {
-                    PartnerLogController.log(DID_TRACK_IMPRESSION)
-                    partnerAdListener.onPartnerAdImpression(
-                        PartnerAd(
-                            ad = adView,
-                            details = emptyMap(),
-                            request = request
+                    CoroutineScope(Main).launch {
+                        PartnerLogController.log(DID_TRACK_IMPRESSION)
+                        partnerAdListener.onPartnerAdImpression(
+                            PartnerAd(
+                                ad = adView,
+                                details = emptyMap(),
+                                request = request
+                            )
                         )
-                    )
+                    }
                 }
             }).fetchAd(SDKUtilities.getBidInfo(adResponse))
         }
@@ -678,14 +684,16 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                 }
 
                 override fun onAdClicked(adView: View?) {
-                    PartnerLogController.log(DID_CLICK)
-                    partnerAdListener.onPartnerAdClicked(
-                        PartnerAd(
-                            ad = fullscreenAd,
-                            details = emptyMap(),
-                            request = request
+                    CoroutineScope(Main).launch {
+                        PartnerLogController.log(DID_CLICK)
+                        partnerAdListener.onPartnerAdClicked(
+                            PartnerAd(
+                                ad = fullscreenAd,
+                                details = emptyMap(),
+                                request = request
+                            )
                         )
-                    )
+                    }
                 }
 
                 override fun onAdLeftApplication(adView: View?) {
@@ -697,38 +705,44 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                 }
 
                 override fun onAdClosed(adView: View?) {
-                    PartnerLogController.log(DID_DISMISS)
-                    partnerAdListener.onPartnerAdDismissed(
-                        PartnerAd(
-                            ad = fullscreenAd,
-                            details = emptyMap(),
-                            request = request
-                        ),
-                        null
-                    )
+                    CoroutineScope(Main).launch {
+                        PartnerLogController.log(DID_DISMISS)
+                        partnerAdListener.onPartnerAdDismissed(
+                            PartnerAd(
+                                ad = fullscreenAd,
+                                details = emptyMap(),
+                                request = request
+                            ),
+                            null
+                        )
+                    }
                 }
 
                 override fun onImpressionFired(adView: View?) {
-                    PartnerLogController.log(DID_TRACK_IMPRESSION)
-                    partnerAdListener.onPartnerAdImpression(
-                        PartnerAd(
-                            ad = fullscreenAd,
-                            details = emptyMap(),
-                            request = request
-                        )
-                    )
-                }
-
-                override fun onVideoCompleted(adView: View?) {
-                    if (request.format == AdFormat.REWARDED) {
-                        PartnerLogController.log(DID_REWARD)
-                        partnerAdListener.onPartnerAdRewarded(
+                    CoroutineScope(Main).launch {
+                        PartnerLogController.log(DID_TRACK_IMPRESSION)
+                        partnerAdListener.onPartnerAdImpression(
                             PartnerAd(
                                 ad = fullscreenAd,
                                 details = emptyMap(),
                                 request = request
                             )
                         )
+                    }
+                }
+
+                override fun onVideoCompleted(adView: View?) {
+                    CoroutineScope(Main).launch {
+                        if (request.format == AdFormat.REWARDED) {
+                            PartnerLogController.log(DID_REWARD)
+                            partnerAdListener.onPartnerAdRewarded(
+                                PartnerAd(
+                                    ad = fullscreenAd,
+                                    details = emptyMap(),
+                                    request = request
+                                )
+                            )
+                        }
                     }
                 }
             })
