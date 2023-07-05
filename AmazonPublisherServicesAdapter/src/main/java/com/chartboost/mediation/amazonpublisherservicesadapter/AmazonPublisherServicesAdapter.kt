@@ -701,7 +701,6 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                 }
 
                 override fun onAdOpen(adView: View?) {
-                    onShowSuccess()
                 }
 
                 override fun onAdClosed(adView: View?) {
@@ -728,6 +727,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                                 request = request
                             )
                         )
+                        onShowSuccess()
                     }
                 }
 
