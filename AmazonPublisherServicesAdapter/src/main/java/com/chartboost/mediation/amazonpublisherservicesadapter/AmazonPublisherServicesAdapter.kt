@@ -23,7 +23,6 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.decodeFromJsonElement
 import kotlin.coroutines.resume
-import kotlin.coroutines.suspendCoroutine
 
 /**
  * The Chartboost Mediation Amazon Publisher Services (APS) adapter.
@@ -350,19 +349,24 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
             return mapOf()
         }
 
-        return suspendCoroutine { continuation ->
+        return suspendCancellableCoroutine { continuation ->
+            fun resumeOnce(result: Map<String, String>) {
+                if (continuation.isActive) {
+                    continuation.resume(result)
+                }
+            }
 
             val adRequest = DTBAdRequest()
             val isVideo = preBidSettings.isVideo
 
             if (preBidSettings.partnerPlacement.isEmpty()) {
-                continuation.resume(mapOf())
-                return@suspendCoroutine
+                resumeOnce(mapOf())
+                return@suspendCancellableCoroutine
             }
 
             if (isSubjectToCoppa) {
-                continuation.resume(mapOf())
-                return@suspendCoroutine
+                resumeOnce(mapOf())
+                return@suspendCancellableCoroutine
             }
 
             buildAdRequestSize(request.format, adRequest, isVideo, preBidSettings)
@@ -379,7 +383,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                         placementToAdResponseMap.remove(placement)
                     }
 
-                    continuation.resume(mapOf())
+                    resumeOnce(mapOf())
                 }
 
                 override fun onSuccess(adResponse: DTBAdResponse) {
@@ -389,10 +393,10 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
 
                     SDKUtilities.getPricePoint(adResponse)?.let { pricePoint ->
                         PartnerLogController.log(BIDDER_INFO_FETCH_SUCCEEDED)
-                        continuation.resume(mutableMapOf(placement to pricePoint))
+                        resumeOnce(mutableMapOf(placement to pricePoint))
                     } ?: run {
                         PartnerLogController.log(BIDDER_INFO_FETCH_FAILED, "Placement: $placement.")
-                        continuation.resume(mapOf())
+                        resumeOnce(mapOf())
                     }
                 }
             })
@@ -561,11 +565,17 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
             return Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_LOAD_FAILURE_NO_FILL))
         }
 
-        return suspendCoroutine { continuation ->
+        return suspendCancellableCoroutine { continuation ->
+            fun resumeOnce(result: Result<PartnerAd>) {
+                if (continuation.isActive) {
+                    continuation.resume(result)
+                }
+            }
+
             DTBAdView(context, object : DTBAdBannerListener {
                 override fun onAdLoaded(adView: View?) {
                     PartnerLogController.log(LOAD_SUCCEEDED)
-                    continuation.resume(
+                    resumeOnce(
                         Result.success(
                             PartnerAd(
                                 ad = adView,
@@ -578,7 +588,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
 
                 override fun onAdFailed(adView: View?) {
                     PartnerLogController.log(LOAD_FAILED)
-                    continuation.resumeWith(
+                    resumeOnce(
                         Result.failure(
                             ChartboostMediationAdException(ChartboostMediationError.CM_LOAD_FAILURE_UNKNOWN)
                         )
@@ -658,12 +668,18 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
             return Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_LOAD_FAILURE_NO_FILL))
         }
 
-        return suspendCoroutine { continuation ->
+        return suspendCancellableCoroutine { continuation ->
+            fun resumeOnce(result: Result<PartnerAd>) {
+                if (continuation.isActive) {
+                    continuation.resume(result)
+                }
+            }
+
             lateinit var fullscreenAd: DTBAdInterstitial
             fullscreenAd = DTBAdInterstitial(context, object : DTBAdInterstitialListener {
                 override fun onAdLoaded(adView: View?) {
                     PartnerLogController.log(LOAD_SUCCEEDED)
-                    continuation.resume(
+                    resumeOnce(
                         Result.success(
                             PartnerAd(
                                 ad = fullscreenAd,
@@ -676,7 +692,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
 
                 override fun onAdFailed(adView: View?) {
                     PartnerLogController.log(LOAD_FAILED)
-                    continuation.resumeWith(
+                    resumeOnce(
                         Result.failure(
                             ChartboostMediationAdException(ChartboostMediationError.CM_LOAD_FAILURE_UNKNOWN)
                         )
@@ -762,9 +778,15 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
         return (partnerAd.ad)?.let { ad ->
             (ad as? DTBAdInterstitial)?.let {
                 suspendCancellableCoroutine { continuation ->
+                    fun resumeOnce(result: Result<PartnerAd>) {
+                        if (continuation.isActive) {
+                            continuation.resume(result)
+                        }
+                    }
+
                     onShowSuccess = {
                         PartnerLogController.log(SHOW_SUCCEEDED)
-                        continuation.resume(Result.success(partnerAd))
+                        resumeOnce(Result.success(partnerAd))
                     }
                     it.show()
                 }
