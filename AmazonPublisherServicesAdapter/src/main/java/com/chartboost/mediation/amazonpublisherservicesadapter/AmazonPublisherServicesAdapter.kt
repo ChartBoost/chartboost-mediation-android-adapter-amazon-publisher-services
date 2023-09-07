@@ -419,7 +419,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
         preBidSettings: PreBidSettings
     ) {
         return when (format) {
-            AdFormat.INTERSTITIAL.key, AdFormat.REWARDED.key -> {
+            AdFormat.INTERSTITIAL, AdFormat.REWARDED -> {
                 adRequest.setSizes(
                     if (isVideo) (DTBAdSize.DTBVideo(
                         preBidSettings.width,
