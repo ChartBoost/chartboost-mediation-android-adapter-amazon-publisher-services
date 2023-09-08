@@ -466,9 +466,9 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
             return Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_LOAD_FAILURE_PRIVACY_OPT_IN))
         }
 
-        return when (request.format) {
-            AdFormat.BANNER -> loadBannerAd(context, request, partnerAdListener)
-            AdFormat.INTERSTITIAL, AdFormat.REWARDED -> loadFullScreenAd(context, request, partnerAdListener)
+        return when (request.format.key) {
+            AdFormat.BANNER.key, "adaptive_banner" -> loadBannerAd(context, request, partnerAdListener)
+            AdFormat.INTERSTITIAL.key, AdFormat.REWARDED.key -> loadFullScreenAd(context, request, partnerAdListener)
             else -> {
                 PartnerLogController.log(LOAD_FAILED)
                 Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_LOAD_FAILURE_UNSUPPORTED_AD_FORMAT))
@@ -492,13 +492,13 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
             return Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_SHOW_FAILURE_PRIVACY_OPT_IN))
         }
 
-        return when (partnerAd.request.format) {
-            AdFormat.BANNER -> {
+        return when (partnerAd.request.format.key) {
+            AdFormat.BANNER.key, "adaptive_banner" -> {
                 // Banner ads do not have a separate "show" mechanism.
                 PartnerLogController.log(SHOW_SUCCEEDED)
                 Result.success(partnerAd)
             }
-            AdFormat.INTERSTITIAL, AdFormat.REWARDED -> showFullscreenAd(partnerAd)
+            AdFormat.INTERSTITIAL.key, AdFormat.REWARDED.key -> showFullscreenAd(partnerAd)
             else -> {
                 PartnerLogController.log(SHOW_FAILED)
                 Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_SHOW_FAILURE_UNSUPPORTED_AD_FORMAT))
@@ -516,8 +516,8 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
     override suspend fun invalidate(partnerAd: PartnerAd): Result<PartnerAd> {
         PartnerLogController.log(INVALIDATE_STARTED)
 
-        return when (partnerAd.request.format) {
-            AdFormat.BANNER -> destroyBannerAd(partnerAd)
+        return when (partnerAd.request.format.key) {
+            AdFormat.BANNER.key, "adaptive_banner" -> destroyBannerAd(partnerAd)
             else -> {
                 PartnerLogController.log(INVALIDATE_SUCCEEDED)
                 Result.success(partnerAd)
