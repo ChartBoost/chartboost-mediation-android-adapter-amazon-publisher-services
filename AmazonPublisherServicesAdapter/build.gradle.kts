@@ -72,7 +72,7 @@ dependencies {
     "remoteImplementation"("com.chartboost:chartboost-mediation-sdk:4.0.0")
 
     //Partner SDK
-    implementation("com.amazon.android:aps-sdk:9.8.6")
+    implementation("com.amazon.android:aps-sdk:9.8.8")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.4")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.4.1")
 
