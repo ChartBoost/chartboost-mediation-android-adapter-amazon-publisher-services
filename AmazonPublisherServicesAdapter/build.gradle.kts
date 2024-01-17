@@ -1,6 +1,6 @@
 /*
  * Copyright 2022-2023 Chartboost, Inc.
- * 
+ *
  * Use of this source code is governed by an MIT-style
  * license that can be found in the LICENSE file.
  */
@@ -54,7 +54,7 @@ android {
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
+                "proguard-rules.pro",
             )
         }
     }
@@ -71,12 +71,12 @@ dependencies {
     // You may choose a different release version.
     "remoteImplementation"("com.chartboost:chartboost-mediation-sdk:4.0.0")
 
-    //Partner SDK
+    // Partner SDK
     implementation("com.amazon.android:aps-sdk:9.8.8")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.4")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.4.1")
 
-    //Partner SDK Dependencies
+    // Partner SDK Dependencies
     implementation("androidx.appcompat:appcompat:1.5.1")
 }
 
@@ -95,10 +95,10 @@ artifactory {
                 setRepoKey("private-chartboost-mediation")
             }
             // Set the environment variables for these to be able to push to artifactory.
-            System.getenv("JFROG_USER")?.let{
+            System.getenv("JFROG_USER")?.let {
                 setUsername(it)
             }
-            System.getenv("JFROG_PASS")?.let{
+            System.getenv("JFROG_PASS")?.let {
                 setPassword(it)
             }
         }
@@ -120,11 +120,12 @@ afterEvaluate {
                 val adapterName = "amazon-publisher-services"
                 groupId = "com.chartboost"
                 artifactId = "chartboost-mediation-adapter-$adapterName"
-                version = if (project.hasProperty("snapshot")) {
-                    android.defaultConfig.versionName + rootProject.ext["SNAPSHOT"]
-                 } else {
-                     android.defaultConfig.versionName
-                 }
+                version =
+                    if (project.hasProperty("snapshot")) {
+                        android.defaultConfig.versionName + rootProject.ext["SNAPSHOT"]
+                    } else {
+                        android.defaultConfig.versionName
+                    }
 
                 pom {
                     name.set("Chartboost Mediation Adapter Amazon Publisher Services")
