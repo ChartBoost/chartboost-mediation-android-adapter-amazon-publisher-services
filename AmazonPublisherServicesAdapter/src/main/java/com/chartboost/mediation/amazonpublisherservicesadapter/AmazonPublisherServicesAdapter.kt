@@ -1,6 +1,6 @@
 /*
  * Copyright 2022-2023 Chartboost, Inc.
- * 
+ *
  * Use of this source code is governed by an MIT-style
  * license that can be found in the LICENSE file.
  */
@@ -41,9 +41,12 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                 PartnerLogController.log(
                     CUSTOM,
                     "- Amazon Publisher Services test mode is ${
-                        if (value) "enabled. Remember to disable it before publishing."
-                        else "disabled."
-                    }"
+                        if (value) {
+                            "enabled. Remember to disable it before publishing."
+                        } else {
+                            "disabled."
+                        }
+                    }",
                 )
             }
 
@@ -98,7 +101,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
         val partnerPlacement: String,
         val width: Int,
         val height: Int,
-        val isVideo: Boolean
+        val isVideo: Boolean,
     )
 
     /**
@@ -171,11 +174,11 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
      */
     override suspend fun setUp(
         context: Context,
-        partnerConfiguration: PartnerConfiguration
+        partnerConfiguration: PartnerConfiguration,
     ): Result<Unit> {
         PartnerLogController.log(SETUP_STARTED)
         return Json.decodeFromJsonElement<String>(
-            (partnerConfiguration.credentials as JsonObject).getValue(APS_APPLICATION_ID_KEY)
+            (partnerConfiguration.credentials as JsonObject).getValue(APS_APPLICATION_ID_KEY),
         )
             .trim()
             .takeIf { it.isNotEmpty() }?.let { appKey ->
@@ -188,9 +191,10 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                 // TODO: Remove once pipes have proven to function.
                 AdRegistration.enableLogging(true, DTBLogLevel.All)
 
-                val preBidArray = Json.decodeFromJsonElement<JsonArray>(
-                    (partnerConfiguration.credentials as JsonObject).getValue(PREBIDS_KEY)
-                )
+                val preBidArray =
+                    Json.decodeFromJsonElement<JsonArray>(
+                        (partnerConfiguration.credentials as JsonObject).getValue(PREBIDS_KEY),
+                    )
                 preBidArray.forEach {
                     withContext(Main) {
                         addPrebid(Json.decodeFromJsonElement(it))
@@ -206,31 +210,36 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
 
     private fun addPrebid(preBid: JsonObject?) {
         preBid?.apply {
-            val chartboostPlacement = get(CHARTBOOST_PLACEMENT_KEY)?.let { 
-                Json.decodeFromJsonElement(it)
-            } ?: ""
-            val partnerPlacement = get(PARTNER_PLACEMENT_KEY)?.let {
-                Json.decodeFromJsonElement(it)
-            } ?: ""
+            val chartboostPlacement =
+                get(CHARTBOOST_PLACEMENT_KEY)?.let {
+                    Json.decodeFromJsonElement(it)
+                } ?: ""
+            val partnerPlacement =
+                get(PARTNER_PLACEMENT_KEY)?.let {
+                    Json.decodeFromJsonElement(it)
+                } ?: ""
 
-            val width = get(WIDTH_KEY)?.let {
-                Json.decodeFromJsonElement(it)
-            } ?: 0
+            val width =
+                get(WIDTH_KEY)?.let {
+                    Json.decodeFromJsonElement(it)
+                } ?: 0
 
-            val height = get(HEIGHT_KEY)?.let {
-                Json.decodeFromJsonElement(it)
-            } ?: 0
+            val height =
+                get(HEIGHT_KEY)?.let {
+                    Json.decodeFromJsonElement(it)
+                } ?: 0
 
-            val isVideo = get(IS_VIDEO_KEY)?.let {
-                Json.decodeFromJsonElement(it)
-            } ?: false
+            val isVideo =
+                get(IS_VIDEO_KEY)?.let {
+                    Json.decodeFromJsonElement(it)
+                } ?: false
 
             placementToPreBidSettings[chartboostPlacement] =
                 PreBidSettings(
                     partnerPlacement = partnerPlacement,
                     width = width,
                     height = height,
-                    isVideo = isVideo
+                    isVideo = isVideo,
                 )
         }
     }
@@ -245,14 +254,14 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
     override fun setGdpr(
         context: Context,
         applies: Boolean?,
-        gdprConsentStatus: GdprConsentStatus
+        gdprConsentStatus: GdprConsentStatus,
     ) {
         PartnerLogController.log(
             when (applies) {
                 true -> GDPR_APPLICABLE
                 false -> GDPR_NOT_APPLICABLE
                 else -> GDPR_UNKNOWN
-            }
+            },
         )
 
         PartnerLogController.log(
@@ -260,7 +269,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                 GdprConsentStatus.GDPR_CONSENT_UNKNOWN -> GDPR_CONSENT_UNKNOWN
                 GdprConsentStatus.GDPR_CONSENT_GRANTED -> GDPR_CONSENT_GRANTED
                 GdprConsentStatus.GDPR_CONSENT_DENIED -> GDPR_CONSENT_DENIED
-            }
+            },
         )
 
         AdRegistration.setCMPFlavor(AdRegistration.CMPFlavor.CMP_NOT_DEFINED)
@@ -271,7 +280,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                     GdprConsentStatus.GDPR_CONSENT_UNKNOWN -> AdRegistration.ConsentStatus.UNKNOWN
                     GdprConsentStatus.GDPR_CONSENT_GRANTED -> AdRegistration.ConsentStatus.EXPLICIT_YES
                     GdprConsentStatus.GDPR_CONSENT_DENIED -> AdRegistration.ConsentStatus.EXPLICIT_NO
-                }
+                },
             )
         } else {
             AdRegistration.setConsentStatus(AdRegistration.ConsentStatus.CONSENT_NOT_DEFINED)
@@ -288,11 +297,14 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
     override fun setCcpaConsent(
         context: Context,
         hasGrantedCcpaConsent: Boolean,
-        privacyString: String
+        privacyString: String,
     ) {
         PartnerLogController.log(
-            if (hasGrantedCcpaConsent) CCPA_CONSENT_GRANTED
-            else CCPA_CONSENT_DENIED
+            if (hasGrantedCcpaConsent) {
+                CCPA_CONSENT_GRANTED
+            } else {
+                CCPA_CONSENT_DENIED
+            },
         )
 
         ccpaPrivacyString = privacyString
@@ -304,10 +316,16 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
      * @param context The current [Context]
      * @param isSubjectToCoppa Whether the user is subject to COPPA.
      */
-    override fun setUserSubjectToCoppa(context: Context, isSubjectToCoppa: Boolean) {
+    override fun setUserSubjectToCoppa(
+        context: Context,
+        isSubjectToCoppa: Boolean,
+    ) {
         PartnerLogController.log(
-            if (isSubjectToCoppa) COPPA_SUBJECT
-            else COPPA_NOT_SUBJECT
+            if (isSubjectToCoppa) {
+                COPPA_SUBJECT
+            } else {
+                COPPA_NOT_SUBJECT
+            },
         )
 
         this.isSubjectToCoppa = isSubjectToCoppa
@@ -323,7 +341,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
      */
     override suspend fun fetchBidderInformation(
         context: Context,
-        request: PreBidRequest
+        request: PreBidRequest,
     ): Map<String, String> {
         // TODO: Remove PreBidSettings and move settings to setUp [HB-4223](https://chartboost.atlassian.net/browse/HB-4223)
         PartnerLogController.log(BIDDER_INFO_FETCH_STARTED)
@@ -339,15 +357,16 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
             }
         }
 
-        val preBidSettings = withContext(Main) {
-            placementToPreBidSettings[placement]
-        } ?: run {
-            PartnerLogController.log(
-                BIDDER_INFO_FETCH_FAILED,
-                "Could not find prebidSettings for this placement."
-            )
-            return mapOf()
-        }
+        val preBidSettings =
+            withContext(Main) {
+                placementToPreBidSettings[placement]
+            } ?: run {
+                PartnerLogController.log(
+                    BIDDER_INFO_FETCH_FAILED,
+                    "Could not find prebidSettings for this placement.",
+                )
+                return mapOf()
+            }
 
         return suspendCancellableCoroutine { continuation ->
             fun resumeOnce(result: Map<String, String>) {
@@ -372,34 +391,36 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
             buildAdRequestSize(request.format, adRequest, isVideo, preBidSettings)
             buildCcpaPrivacy(adRequest, ccpaPrivacyString)
 
-            adRequest.loadAd(object : DTBAdCallback {
-                override fun onFailure(adError: AdError) {
-                    PartnerLogController.log(
-                        BIDDER_INFO_FETCH_FAILED,
-                        "Placement: $placement. Error: ${adError.code}. Message: ${adError.message}"
-                    )
+            adRequest.loadAd(
+                object : DTBAdCallback {
+                    override fun onFailure(adError: AdError) {
+                        PartnerLogController.log(
+                            BIDDER_INFO_FETCH_FAILED,
+                            "Placement: $placement. Error: ${adError.code}. Message: ${adError.message}",
+                        )
 
-                    CoroutineScope(Main.immediate).launch {
-                        placementToAdResponseMap.remove(placement)
-                    }
+                        CoroutineScope(Main.immediate).launch {
+                            placementToAdResponseMap.remove(placement)
+                        }
 
-                    resumeOnce(mapOf())
-                }
-
-                override fun onSuccess(adResponse: DTBAdResponse) {
-                    CoroutineScope(Main.immediate).launch {
-                        placementToAdResponseMap[placement] = adResponse
-                    }
-
-                    SDKUtilities.getPricePoint(adResponse)?.let { pricePoint ->
-                        PartnerLogController.log(BIDDER_INFO_FETCH_SUCCEEDED)
-                        resumeOnce(mutableMapOf(placement to pricePoint))
-                    } ?: run {
-                        PartnerLogController.log(BIDDER_INFO_FETCH_FAILED, "Placement: $placement.")
                         resumeOnce(mapOf())
                     }
-                }
-            })
+
+                    override fun onSuccess(adResponse: DTBAdResponse) {
+                        CoroutineScope(Main.immediate).launch {
+                            placementToAdResponseMap[placement] = adResponse
+                        }
+
+                        SDKUtilities.getPricePoint(adResponse)?.let { pricePoint ->
+                            PartnerLogController.log(BIDDER_INFO_FETCH_SUCCEEDED)
+                            resumeOnce(mutableMapOf(placement to pricePoint))
+                        } ?: run {
+                            PartnerLogController.log(BIDDER_INFO_FETCH_FAILED, "Placement: $placement.")
+                            resumeOnce(mapOf())
+                        }
+                    }
+                },
+            )
         }
     }
 
@@ -416,30 +437,43 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
         format: AdFormat,
         adRequest: DTBAdRequest,
         isVideo: Boolean,
-        preBidSettings: PreBidSettings
+        preBidSettings: PreBidSettings,
     ) {
         return when (format) {
             AdFormat.INTERSTITIAL, AdFormat.REWARDED -> {
                 adRequest.setSizes(
-                    if (isVideo) (DTBAdSize.DTBVideo(
-                        preBidSettings.width,
-                        preBidSettings.height,
-                        preBidSettings.partnerPlacement
-                    ))
-                    else (DTBAdSize.DTBInterstitialAdSize(preBidSettings.partnerPlacement))
+                    if (isVideo) {
+                        (
+                            DTBAdSize.DTBVideo(
+                                preBidSettings.width,
+                                preBidSettings.height,
+                                preBidSettings.partnerPlacement,
+                            )
+                        )
+                    } else {
+                        (DTBAdSize.DTBInterstitialAdSize(preBidSettings.partnerPlacement))
+                    },
                 )
             }
             else -> {
                 adRequest.setSizes(
-                    if (isVideo) (DTBAdSize.DTBVideo(
-                        preBidSettings.width,
-                        preBidSettings.height,
-                        preBidSettings.partnerPlacement
-                    )) else (DTBAdSize(
-                        preBidSettings.width,
-                        preBidSettings.height,
-                        preBidSettings.partnerPlacement
-                    ))
+                    if (isVideo) {
+                        (
+                            DTBAdSize.DTBVideo(
+                                preBidSettings.width,
+                                preBidSettings.height,
+                                preBidSettings.partnerPlacement,
+                            )
+                        )
+                    } else {
+                        (
+                            DTBAdSize(
+                                preBidSettings.width,
+                                preBidSettings.height,
+                                preBidSettings.partnerPlacement,
+                            )
+                        )
+                    },
                 )
             }
         }
@@ -457,7 +491,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
     override suspend fun load(
         context: Context,
         request: PartnerAdLoadRequest,
-        partnerAdListener: PartnerAdListener
+        partnerAdListener: PartnerAdListener,
     ): Result<PartnerAd> {
         PartnerLogController.log(LOAD_STARTED)
 
@@ -484,7 +518,10 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
      *
      * @return Result.success(PartnerAd) if the ad was successfully shown, Result.failure(Exception) otherwise.
      */
-    override suspend fun show(context: Context, partnerAd: PartnerAd): Result<PartnerAd> {
+    override suspend fun show(
+        context: Context,
+        partnerAd: PartnerAd,
+    ): Result<PartnerAd> {
         PartnerLogController.log(SHOW_STARTED)
 
         if (isSubjectToCoppa) {
@@ -525,7 +562,6 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
         }
     }
 
-
     /**
      * Attaches the CCPA privacy setting to the APS request.
      *
@@ -534,7 +570,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
      */
     private fun buildCcpaPrivacy(
         adRequest: DTBAdRequest,
-        ccpaPrivacyString: String?
+        ccpaPrivacyString: String?,
     ) {
         adRequest.apply {
             ccpaPrivacyString?.let {
@@ -555,15 +591,16 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
     private suspend fun loadBannerAd(
         context: Context,
         request: PartnerAdLoadRequest,
-        partnerAdListener: PartnerAdListener
+        partnerAdListener: PartnerAdListener,
     ): Result<PartnerAd> {
         val placementName = request.chartboostPlacement
-        val adResponse = withContext(Main) {
-            placementToAdResponseMap.remove(placementName)
-        } ?: run {
-            PartnerLogController.log(LOAD_FAILED, "No ad response found.")
-            return Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_LOAD_FAILURE_NO_FILL))
-        }
+        val adResponse =
+            withContext(Main) {
+                placementToAdResponseMap.remove(placementName)
+            } ?: run {
+                PartnerLogController.log(LOAD_FAILED, "No ad response found.")
+                return Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_LOAD_FAILURE_NO_FILL))
+            }
 
         return suspendCancellableCoroutine { continuation ->
             fun resumeOnce(result: Result<PartnerAd>) {
@@ -572,77 +609,80 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                 }
             }
 
-            DTBAdView(context, object : DTBAdBannerListener {
-                override fun onAdLoaded(adView: View?) {
-                    PartnerLogController.log(LOAD_SUCCEEDED)
-                    resumeOnce(
-                        Result.success(
-                            PartnerAd(
-                                ad = adView,
-                                details = emptyMap(),
-                                request = request
-                            )
-                        )
-                    )
-                }
-
-                override fun onAdFailed(adView: View?) {
-                    PartnerLogController.log(LOAD_FAILED)
-                    resumeOnce(
-                        Result.failure(
-                            ChartboostMediationAdException(ChartboostMediationError.CM_LOAD_FAILURE_UNKNOWN)
-                        )
-                    )
-                }
-
-                override fun onAdClicked(adView: View?) {
-                    CoroutineScope(Main).launch {
-                        PartnerLogController.log(DID_CLICK)
-                        partnerAdListener.onPartnerAdClicked(
-                            PartnerAd(
-                                ad = adView,
-                                details = emptyMap(),
-                                request = request
-                            )
-                        )
-                    }
-                }
-
-                override fun onAdLeftApplication(adView: View?) {
-                    // NO-OP
-                }
-
-                override fun onAdOpen(adView: View?) {
-                    // NO-OP
-                }
-
-                override fun onAdClosed(adView: View?) {
-                    CoroutineScope(Main).launch {
-                        PartnerLogController.log(DID_DISMISS)
-                        partnerAdListener.onPartnerAdDismissed(
-                            PartnerAd(
-                                ad = adView,
-                                details = emptyMap(),
-                                request = request
+            DTBAdView(
+                context,
+                object : DTBAdBannerListener {
+                    override fun onAdLoaded(adView: View?) {
+                        PartnerLogController.log(LOAD_SUCCEEDED)
+                        resumeOnce(
+                            Result.success(
+                                PartnerAd(
+                                    ad = adView,
+                                    details = emptyMap(),
+                                    request = request,
+                                ),
                             ),
-                            null
                         )
                     }
-                }
 
-                override fun onImpressionFired(adView: View?) {
-                    CoroutineScope(Main).launch {
-                        PartnerLogController.log(DID_TRACK_IMPRESSION)
-                        partnerAdListener.onPartnerAdImpression(
-                            PartnerAd(
-                                ad = adView,
-                                details = emptyMap(),
-                                request = request
-                            )
+                    override fun onAdFailed(adView: View?) {
+                        PartnerLogController.log(LOAD_FAILED)
+                        resumeOnce(
+                            Result.failure(
+                                ChartboostMediationAdException(ChartboostMediationError.CM_LOAD_FAILURE_UNKNOWN),
+                            ),
                         )
                     }
-                }
-            }).fetchAd(SDKUtilities.getBidInfo(adResponse))
+
+                    override fun onAdClicked(adView: View?) {
+                        CoroutineScope(Main).launch {
+                            PartnerLogController.log(DID_CLICK)
+                            partnerAdListener.onPartnerAdClicked(
+                                PartnerAd(
+                                    ad = adView,
+                                    details = emptyMap(),
+                                    request = request,
+                                ),
+                            )
+                        }
+                    }
+
+                    override fun onAdLeftApplication(adView: View?) {
+                        // NO-OP
+                    }
+
+                    override fun onAdOpen(adView: View?) {
+                        // NO-OP
+                    }
+
+                    override fun onAdClosed(adView: View?) {
+                        CoroutineScope(Main).launch {
+                            PartnerLogController.log(DID_DISMISS)
+                            partnerAdListener.onPartnerAdDismissed(
+                                PartnerAd(
+                                    ad = adView,
+                                    details = emptyMap(),
+                                    request = request,
+                                ),
+                                null,
+                            )
+                        }
+                    }
+
+                    override fun onImpressionFired(adView: View?) {
+                        CoroutineScope(Main).launch {
+                            PartnerLogController.log(DID_TRACK_IMPRESSION)
+                            partnerAdListener.onPartnerAdImpression(
+                                PartnerAd(
+                                    ad = adView,
+                                    details = emptyMap(),
+                                    request = request,
+                                ),
+                            )
+                        }
+                    }
+                },
+            ).fetchAd(SDKUtilities.getBidInfo(adResponse))
         }
     }
 
@@ -658,15 +698,16 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
     private suspend fun loadFullScreenAd(
         context: Context,
         request: PartnerAdLoadRequest,
-        partnerAdListener: PartnerAdListener
+        partnerAdListener: PartnerAdListener,
     ): Result<PartnerAd> {
         val placementName = request.chartboostPlacement
-        val adResponse = withContext(Main) {
-            placementToAdResponseMap.remove(placementName)
-        } ?: run {
-            PartnerLogController.log(LOAD_FAILED, "No ad response found.")
-            return Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_LOAD_FAILURE_NO_FILL))
-        }
+        val adResponse =
+            withContext(Main) {
+                placementToAdResponseMap.remove(placementName)
+            } ?: run {
+                PartnerLogController.log(LOAD_FAILED, "No ad response found.")
+                return Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_LOAD_FAILURE_NO_FILL))
+            }
 
         return suspendCancellableCoroutine { continuation ->
             fun resumeOnce(result: Result<PartnerAd>) {
@@ -676,92 +717,96 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
             }
 
             lateinit var fullscreenAd: DTBAdInterstitial
-            fullscreenAd = DTBAdInterstitial(context, object : DTBAdInterstitialListener {
-                override fun onAdLoaded(adView: View?) {
-                    PartnerLogController.log(LOAD_SUCCEEDED)
-                    resumeOnce(
-                        Result.success(
-                            PartnerAd(
-                                ad = fullscreenAd,
-                                details = emptyMap(),
-                                request = request
-                            )
-                        )
-                    )
-                }
-
-                override fun onAdFailed(adView: View?) {
-                    PartnerLogController.log(LOAD_FAILED)
-                    resumeOnce(
-                        Result.failure(
-                            ChartboostMediationAdException(ChartboostMediationError.CM_LOAD_FAILURE_UNKNOWN)
-                        )
-                    )
-                }
-
-                override fun onAdClicked(adView: View?) {
-                    CoroutineScope(Main).launch {
-                        PartnerLogController.log(DID_CLICK)
-                        partnerAdListener.onPartnerAdClicked(
-                            PartnerAd(
-                                ad = fullscreenAd,
-                                details = emptyMap(),
-                                request = request
-                            )
-                        )
-                    }
-                }
-
-                override fun onAdLeftApplication(adView: View?) {
-                    // NO-OP
-                }
-
-                override fun onAdOpen(adView: View?) {
-                }
-
-                override fun onAdClosed(adView: View?) {
-                    CoroutineScope(Main).launch {
-                        PartnerLogController.log(DID_DISMISS)
-                        partnerAdListener.onPartnerAdDismissed(
-                            PartnerAd(
-                                ad = fullscreenAd,
-                                details = emptyMap(),
-                                request = request
-                            ),
-                            null
-                        )
-                    }
-                }
-
-                override fun onImpressionFired(adView: View?) {
-                    CoroutineScope(Main).launch {
-                        PartnerLogController.log(DID_TRACK_IMPRESSION)
-                        partnerAdListener.onPartnerAdImpression(
-                            PartnerAd(
-                                ad = fullscreenAd,
-                                details = emptyMap(),
-                                request = request
-                            )
-                        )
-                        onShowSuccess()
-                    }
-                }
-
-                override fun onVideoCompleted(adView: View?) {
-                    CoroutineScope(Main).launch {
-                        if (request.format == AdFormat.REWARDED) {
-                            PartnerLogController.log(DID_REWARD)
-                            partnerAdListener.onPartnerAdRewarded(
-                                PartnerAd(
-                                    ad = fullscreenAd,
-                                    details = emptyMap(),
-                                    request = request
-                                )
+            fullscreenAd =
+                DTBAdInterstitial(
+                    context,
+                    object : DTBAdInterstitialListener {
+                        override fun onAdLoaded(adView: View?) {
+                            PartnerLogController.log(LOAD_SUCCEEDED)
+                            resumeOnce(
+                                Result.success(
+                                    PartnerAd(
+                                        ad = fullscreenAd,
+                                        details = emptyMap(),
+                                        request = request,
+                                    ),
+                                ),
                             )
                         }
-                    }
-                }
-            })
+
+                        override fun onAdFailed(adView: View?) {
+                            PartnerLogController.log(LOAD_FAILED)
+                            resumeOnce(
+                                Result.failure(
+                                    ChartboostMediationAdException(ChartboostMediationError.CM_LOAD_FAILURE_UNKNOWN),
+                                ),
+                            )
+                        }
+
+                        override fun onAdClicked(adView: View?) {
+                            CoroutineScope(Main).launch {
+                                PartnerLogController.log(DID_CLICK)
+                                partnerAdListener.onPartnerAdClicked(
+                                    PartnerAd(
+                                        ad = fullscreenAd,
+                                        details = emptyMap(),
+                                        request = request,
+                                    ),
+                                )
+                            }
+                        }
+
+                        override fun onAdLeftApplication(adView: View?) {
+                            // NO-OP
+                        }
+
+                        override fun onAdOpen(adView: View?) {
+                        }
+
+                        override fun onAdClosed(adView: View?) {
+                            CoroutineScope(Main).launch {
+                                PartnerLogController.log(DID_DISMISS)
+                                partnerAdListener.onPartnerAdDismissed(
+                                    PartnerAd(
+                                        ad = fullscreenAd,
+                                        details = emptyMap(),
+                                        request = request,
+                                    ),
+                                    null,
+                                )
+                            }
+                        }
+
+                        override fun onImpressionFired(adView: View?) {
+                            CoroutineScope(Main).launch {
+                                PartnerLogController.log(DID_TRACK_IMPRESSION)
+                                partnerAdListener.onPartnerAdImpression(
+                                    PartnerAd(
+                                        ad = fullscreenAd,
+                                        details = emptyMap(),
+                                        request = request,
+                                    ),
+                                )
+                                onShowSuccess()
+                            }
+                        }
+
+                        override fun onVideoCompleted(adView: View?) {
+                            CoroutineScope(Main).launch {
+                                if (request.format == AdFormat.REWARDED) {
+                                    PartnerLogController.log(DID_REWARD)
+                                    partnerAdListener.onPartnerAdRewarded(
+                                        PartnerAd(
+                                            ad = fullscreenAd,
+                                            details = emptyMap(),
+                                            request = request,
+                                        ),
+                                    )
+                                }
+                            }
+                        }
+                    },
+                )
 
             fullscreenAd.fetchAd(SDKUtilities.getBidInfo(adResponse))
         }
