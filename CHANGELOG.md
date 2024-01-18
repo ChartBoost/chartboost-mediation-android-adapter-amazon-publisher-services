@@ -3,8 +3,10 @@
 Note the first digit of every adapter version corresponds to the major version of the Chartboost Mediation SDK compatible with that adapter. 
 Adapters are compatible with any Chartboost Mediation SDK version within that major version.
 
-### 4.9.8.8.1
+### 4.9.8.9.0
+- This version of the adapter has been certified with Amazon Publisher Services SDK 9.8.9.
 - Fix memory leaks that could occur when fullscreen ads are shown from an `Activity`.
+- Chartboost is not permitted to wrap load or initialization calls for Amazon APS. Please review Amazon's documentation to initialize Amazon Publisher Services, implement a `PreBiddingListener`, and set it on `AmazonPublisherServicesAdapter.preBiddingListener`.
 
 ### 4.9.8.8.0
 - This version of the adapter has been certified with Amazon Publisher Services SDK 9.8.8.
