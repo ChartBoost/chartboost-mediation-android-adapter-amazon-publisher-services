@@ -13,6 +13,8 @@ import com.amazon.device.ads.*
 import com.chartboost.heliumsdk.domain.*
 import com.chartboost.heliumsdk.utils.PartnerLogController
 import com.chartboost.heliumsdk.utils.PartnerLogController.PartnerAdapterEvents.*
+import com.chartboost.mediation.amazonpublisherservicesadapter.AmazonPublisherServicesAdapter.Companion.onShowSuccess
+import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers.Main
 import kotlinx.coroutines.launch
@@ -22,6 +24,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.decodeFromJsonElement
+import java.lang.ref.WeakReference
 import kotlin.coroutines.resume
 
 /**
@@ -49,6 +52,11 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                     }",
                 )
             }
+
+        /**
+         * A lambda to call for successful APS ad shows.
+         */
+        internal var onShowSuccess: () -> Unit = {}
 
         /**
          * Key for setting the CCPA privacy.
@@ -103,11 +111,6 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
         val height: Int,
         val isVideo: Boolean,
     )
-
-    /**
-     * A lambda to call for successful APS ad shows.
-     */
-    private var onShowSuccess: () -> Unit = {}
 
     /**
      * String Chartboost placement name to the APS prebid.
@@ -710,104 +713,10 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
             }
 
         return suspendCancellableCoroutine { continuation ->
-            fun resumeOnce(result: Result<PartnerAd>) {
-                if (continuation.isActive) {
-                    continuation.resume(result)
-                }
-            }
+            val listener = AdListener(WeakReference(continuation), request, WeakReference(partnerAdListener))
+            val fullscreenAd = DTBAdInterstitial(context, listener)
 
-            lateinit var fullscreenAd: DTBAdInterstitial
-            fullscreenAd =
-                DTBAdInterstitial(
-                    context,
-                    object : DTBAdInterstitialListener {
-                        override fun onAdLoaded(adView: View?) {
-                            PartnerLogController.log(LOAD_SUCCEEDED)
-                            resumeOnce(
-                                Result.success(
-                                    PartnerAd(
-                                        ad = fullscreenAd,
-                                        details = emptyMap(),
-                                        request = request,
-                                    ),
-                                ),
-                            )
-                        }
-
-                        override fun onAdFailed(adView: View?) {
-                            PartnerLogController.log(LOAD_FAILED)
-                            resumeOnce(
-                                Result.failure(
-                                    ChartboostMediationAdException(ChartboostMediationError.CM_LOAD_FAILURE_UNKNOWN),
-                                ),
-                            )
-                        }
-
-                        override fun onAdClicked(adView: View?) {
-                            CoroutineScope(Main).launch {
-                                PartnerLogController.log(DID_CLICK)
-                                partnerAdListener.onPartnerAdClicked(
-                                    PartnerAd(
-                                        ad = fullscreenAd,
-                                        details = emptyMap(),
-                                        request = request,
-                                    ),
-                                )
-                            }
-                        }
-
-                        override fun onAdLeftApplication(adView: View?) {
-                            // NO-OP
-                        }
-
-                        override fun onAdOpen(adView: View?) {
-                        }
-
-                        override fun onAdClosed(adView: View?) {
-                            CoroutineScope(Main).launch {
-                                PartnerLogController.log(DID_DISMISS)
-                                partnerAdListener.onPartnerAdDismissed(
-                                    PartnerAd(
-                                        ad = fullscreenAd,
-                                        details = emptyMap(),
-                                        request = request,
-                                    ),
-                                    null,
-                                )
-                            }
-                        }
-
-                        override fun onImpressionFired(adView: View?) {
-                            CoroutineScope(Main).launch {
-                                PartnerLogController.log(DID_TRACK_IMPRESSION)
-                                partnerAdListener.onPartnerAdImpression(
-                                    PartnerAd(
-                                        ad = fullscreenAd,
-                                        details = emptyMap(),
-                                        request = request,
-                                    ),
-                                )
-                                onShowSuccess()
-                            }
-                        }
-
-                        override fun onVideoCompleted(adView: View?) {
-                            CoroutineScope(Main).launch {
-                                if (request.format == AdFormat.REWARDED) {
-                                    PartnerLogController.log(DID_REWARD)
-                                    partnerAdListener.onPartnerAdRewarded(
-                                        PartnerAd(
-                                            ad = fullscreenAd,
-                                            details = emptyMap(),
-                                            request = request,
-                                        ),
-                                    )
-                                }
-                            }
-                        }
-                    },
-                )
-
+            listener.setAd(fullscreenAd)
             fullscreenAd.fetchAd(SDKUtilities.getBidInfo(adResponse))
         }
     }
@@ -823,15 +732,17 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
         return (partnerAd.ad)?.let { ad ->
             (ad as? DTBAdInterstitial)?.let {
                 suspendCancellableCoroutine { continuation ->
-                    fun resumeOnce(result: Result<PartnerAd>) {
-                        if (continuation.isActive) {
-                            continuation.resume(result)
-                        }
-                    }
+                    val continuationWeakRef = WeakReference(continuation)
 
                     onShowSuccess = {
                         PartnerLogController.log(SHOW_SUCCEEDED)
-                        resumeOnce(Result.success(partnerAd))
+                        continuationWeakRef.get()?.let {
+                            if (it.isActive) {
+                                it.resume(Result.success(partnerAd))
+                            }
+                        } ?: run {
+                            PartnerLogController.log(SHOW_FAILED, "Unable to resume continuation in onShowSuccess. Continuation is null.")
+                        }
                     }
                     it.show()
                 }
@@ -861,6 +772,136 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
         } ?: run {
             PartnerLogController.log(INVALIDATE_FAILED, "Ad is null.")
             Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_INVALIDATE_FAILURE_AD_NOT_FOUND))
+        }
+    }
+}
+
+private class AdListener(
+    private val continuationRef: WeakReference<CancellableContinuation<Result<PartnerAd>>>,
+    private val request: PartnerAdLoadRequest,
+    private val listenerRef: WeakReference<PartnerAdListener?>,
+) : DTBAdInterstitialListener {
+    private lateinit var fullscreenAd: DTBAdInterstitial
+
+    fun setAd(ad: DTBAdInterstitial) {
+        fullscreenAd = ad
+    }
+
+    override fun onAdLoaded(adView: View?) {
+        PartnerLogController.log(LOAD_SUCCEEDED)
+        continuationRef.get()?.let {
+            if (it.isActive) {
+                it.resume(
+                    Result.success(
+                        PartnerAd(
+                            ad = fullscreenAd,
+                            details = emptyMap(),
+                            request = request,
+                        ),
+                    ),
+                )
+            }
+        } ?: run {
+            PartnerLogController.log(LOAD_FAILED, "Unable to resume continuation in onAdLoaded. Continuation is null.")
+        }
+    }
+
+    override fun onAdFailed(adView: View?) {
+        PartnerLogController.log(LOAD_FAILED)
+        continuationRef.get()?.let {
+            if (it.isActive) {
+                it.resume(
+                    Result.failure(
+                        ChartboostMediationAdException(ChartboostMediationError.CM_LOAD_FAILURE_UNKNOWN),
+                    ),
+                )
+            }
+        } ?: run {
+            PartnerLogController.log(LOAD_FAILED, "Unable to resume continuation in onAdFailed. Continuation is null.")
+        }
+    }
+
+    override fun onAdClicked(adView: View?) {
+        CoroutineScope(Main).launch {
+            PartnerLogController.log(DID_CLICK)
+            listenerRef.get()?.onPartnerAdClicked(
+                PartnerAd(
+                    ad = fullscreenAd,
+                    details = emptyMap(),
+                    request = request,
+                ),
+            ) ?: run {
+                PartnerLogController.log(
+                    DID_CLICK,
+                    "Unable to fire onPartnerAdClicked for Amazon Publisher Services adapter. Listener is null.",
+                )
+            }
+        }
+    }
+
+    override fun onAdLeftApplication(adView: View?) {
+        // NO-OP
+    }
+
+    override fun onAdOpen(adView: View?) {
+    }
+
+    override fun onAdClosed(adView: View?) {
+        CoroutineScope(Main).launch {
+            PartnerLogController.log(DID_DISMISS)
+            listenerRef.get()?.onPartnerAdDismissed(
+                PartnerAd(
+                    ad = fullscreenAd,
+                    details = emptyMap(),
+                    request = request,
+                ),
+                null,
+            ) ?: run {
+                PartnerLogController.log(
+                    DID_DISMISS,
+                    "Unable to fire onPartnerAdDismissed for Amazon Publisher Services adapter. Listener is null.",
+                )
+            }
+        }
+    }
+
+    override fun onImpressionFired(adView: View?) {
+        CoroutineScope(Main).launch {
+            PartnerLogController.log(DID_TRACK_IMPRESSION)
+            onShowSuccess()
+
+            listenerRef.get()?.onPartnerAdImpression(
+                PartnerAd(
+                    ad = fullscreenAd,
+                    details = emptyMap(),
+                    request = request,
+                ),
+            ) ?: run {
+                PartnerLogController.log(
+                    DID_TRACK_IMPRESSION,
+                    "Unable to fire onPartnerAdImpression for Amazon Publisher Services adapter. Listener is null.",
+                )
+            }
+        }
+    }
+
+    override fun onVideoCompleted(adView: View?) {
+        CoroutineScope(Main).launch {
+            if (request.format == AdFormat.REWARDED) {
+                PartnerLogController.log(DID_REWARD)
+                listenerRef.get()?.onPartnerAdRewarded(
+                    PartnerAd(
+                        ad = fullscreenAd,
+                        details = emptyMap(),
+                        request = request,
+                    ),
+                ) ?: run {
+                    PartnerLogController.log(
+                        DID_REWARD,
+                        "Unable to fire onPartnerAdRewarded for Amazon Publisher Services adapter. Listener is null.",
+                    )
+                }
+            }
         }
     }
 }
