@@ -713,7 +713,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
             }
 
         return suspendCancellableCoroutine { continuation ->
-            val listener = AdListener(WeakReference(continuation), request, WeakReference(partnerAdListener))
+            val listener = AdListener(WeakReference(continuation), request, partnerAdListener)
             val fullscreenAd = DTBAdInterstitial(context, listener)
 
             listener.setAd(fullscreenAd)
@@ -776,10 +776,17 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
     }
 }
 
+/**
+ * Ad listener implementation for APS fullscreen ads.
+ *
+ * @param continuationRef A weak reference to the continuation to resume once the ad has loaded.
+ * @param request The [PartnerAdLoadRequest] instance containing relevant data for the current ad load call.
+ * @param listener A [PartnerAdListener] to notify Chartboost Mediation of ad events.
+ */
 private class AdListener(
     private val continuationRef: WeakReference<CancellableContinuation<Result<PartnerAd>>>,
     private val request: PartnerAdLoadRequest,
-    private val listenerRef: WeakReference<PartnerAdListener?>,
+    private val listener: PartnerAdListener?,
 ) : DTBAdInterstitialListener {
     private lateinit var fullscreenAd: DTBAdInterstitial
 
@@ -824,7 +831,7 @@ private class AdListener(
     override fun onAdClicked(adView: View?) {
         CoroutineScope(Main).launch {
             PartnerLogController.log(DID_CLICK)
-            listenerRef.get()?.onPartnerAdClicked(
+            listener?.onPartnerAdClicked(
                 PartnerAd(
                     ad = fullscreenAd,
                     details = emptyMap(),
@@ -849,7 +856,7 @@ private class AdListener(
     override fun onAdClosed(adView: View?) {
         CoroutineScope(Main).launch {
             PartnerLogController.log(DID_DISMISS)
-            listenerRef.get()?.onPartnerAdDismissed(
+            listener?.onPartnerAdDismissed(
                 PartnerAd(
                     ad = fullscreenAd,
                     details = emptyMap(),
@@ -870,7 +877,7 @@ private class AdListener(
             PartnerLogController.log(DID_TRACK_IMPRESSION)
             onShowSuccess()
 
-            listenerRef.get()?.onPartnerAdImpression(
+            listener?.onPartnerAdImpression(
                 PartnerAd(
                     ad = fullscreenAd,
                     details = emptyMap(),
@@ -889,7 +896,7 @@ private class AdListener(
         CoroutineScope(Main).launch {
             if (request.format == AdFormat.REWARDED) {
                 PartnerLogController.log(DID_REWARD)
-                listenerRef.get()?.onPartnerAdRewarded(
+                listener?.onPartnerAdRewarded(
                     PartnerAd(
                         ad = fullscreenAd,
                         details = emptyMap(),
