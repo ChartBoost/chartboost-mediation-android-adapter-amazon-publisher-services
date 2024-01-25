@@ -788,7 +788,7 @@ private class AdListener(
     private val request: PartnerAdLoadRequest,
     private val listener: PartnerAdListener?,
 ) : DTBAdInterstitialListener {
-    private lateinit var fullscreenAd: DTBAdInterstitial
+    private var fullscreenAd: DTBAdInterstitial? = null
 
     fun setAd(ad: DTBAdInterstitial) {
         fullscreenAd = ad
