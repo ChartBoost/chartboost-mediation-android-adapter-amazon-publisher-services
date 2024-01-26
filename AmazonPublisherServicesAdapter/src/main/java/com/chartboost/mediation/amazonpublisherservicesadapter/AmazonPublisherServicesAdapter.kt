@@ -876,6 +876,7 @@ private class AdListener(
         CoroutineScope(Main).launch {
             PartnerLogController.log(DID_TRACK_IMPRESSION)
             onShowSuccess()
+            onShowSuccess = {}
 
             listener?.onPartnerAdImpression(
                 PartnerAd(
