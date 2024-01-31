@@ -1,6 +1,6 @@
 /*
  * Copyright 2023-2024 Chartboost, Inc.
- * 
+ *
  * Use of this source code is governed by an MIT-style
  * license that can be found in the LICENSE file.
  */
@@ -53,7 +53,6 @@ import kotlin.coroutines.resume
  * The Chartboost Mediation Amazon Publisher Services (APS) adapter.
  */
 class AmazonPublisherServicesAdapter : PartnerAdapter {
-
     interface PreBiddingListener {
         /**
          * Called when Chartboost Mediation is requesting a prebid from Amazon.
@@ -64,7 +63,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
          */
         suspend fun onPreBid(
             context: Context,
-            request: AmazonPublisherServicesAdapterPreBidRequest
+            request: AmazonPublisherServicesAdapterPreBidRequest,
         ): Result<AmazonPublisherServicesAdapterPreBidAdInfo>
     }
 
@@ -73,7 +72,13 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
      * [DTBAdResponse] is also available.
      */
     data class AmazonPublisherServicesAdapterPreBidAdInfo(
+        /**
+         * The price point from a [DTBAdResponse]. See SDKUtilities#getPricePoint(DTBAdResponse).
+         */
         val pricePoint: String?,
+        /**
+         * The bid info from a [DTBAdResponse]. See SDKUtilities#getBidInfo(DTBAdresponse).
+         */
         val bidInfo: String?,
     ) {
         constructor(dtbAdResponse: DTBAdResponse) : this(
@@ -86,10 +91,22 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
      * Data class to store all the Amazon pre bid settings from the configuration.
      */
     data class AmazonSettings(
+        /**
+         * The Amazon placement name.
+         */
         val partnerPlacement: String,
+        /**
+         * The width of the expected ad if it's a banner.
+         */
         val width: Int,
+        /**
+         * The height of the expected ad if it's a banner.
+         */
         val height: Int,
-        val isVideo: Boolean
+        /**
+         * Whether or not to serve video in this placement.
+         */
+        val isVideo: Boolean,
     )
 
     /**
@@ -97,12 +114,23 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
      * pre bid settings.
      */
     data class AmazonPublisherServicesAdapterPreBidRequest(
+        /**
+         * The Chartboost placement name.
+         */
         val chartboostPlacement: String,
+        /**
+         * The ad format of this pre bid request.
+         */
         val format: AdFormat,
+        /**
+         * Amazon adapter specific settings to do a pre bid request.
+         */
         val amazonSettings: AmazonSettings,
+        /**
+         * The CCPA US Privacy String. This is only used by the internal listener.
+         */
         internal val ccpaPrivacyString: String?,
     )
-
 
     companion object {
         /**
@@ -263,11 +291,11 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
         )
             .trim()
             .takeIf { it.isNotEmpty() }?.let { appKey ->
-                val useManagedPrebidding =
+                val shouldUseManagedPrebidding =
                     (partnerConfiguration.credentials as JsonObject).get(MANAGED_PREBIDDING_KEY)?.jsonPrimitive?.booleanOrNull
                         ?: false
 
-                if (useManagedPrebidding) {
+                if (shouldUseManagedPrebidding) {
                     AdRegistration.getInstance(appKey, context)
 
                     AdRegistration.setAdNetworkInfo(DTBAdNetworkInfo(DTBAdNetwork.OTHER))
@@ -445,15 +473,16 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
             }
         }
 
-        val amazonSettings = withContext(Main) {
-            placementToAmazonSettings[placement]
-        } ?: run {
-            PartnerLogController.log(
-                BIDDER_INFO_FETCH_FAILED,
-                "Could not find amazonSettings for this placement."
-            )
-            return mapOf()
-        }
+        val amazonSettings =
+            withContext(Main) {
+                placementToAmazonSettings[placement]
+            } ?: run {
+                PartnerLogController.log(
+                    BIDDER_INFO_FETCH_FAILED,
+                    "Could not find amazonSettings for this placement.",
+                )
+                return mapOf()
+            }
 
         return suspendCancellableCoroutine { continuation ->
             fun resumeOnce(result: Map<String, String>) {
@@ -480,11 +509,9 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                         format = request.format,
                         amazonSettings = amazonSettings,
                         ccpaPrivacyString = ccpaPrivacyString,
-                    )
+                    ),
                 )?.fold({ adInfo ->
-                    CoroutineScope(Main.immediate).launch {
-                        placementToPreBidAdInfoMap[placement] = adInfo
-                    }
+                    placementToPreBidAdInfoMap[placement] = adInfo
 
                     adInfo.pricePoint?.let { pricePoint ->
                         PartnerLogController.log(BIDDER_INFO_FETCH_SUCCEEDED)
@@ -501,16 +528,14 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                     resumeOnce(mapOf())
                 }
             }
-
         }
     }
 
-    private class DefaultPreBiddingListener: PreBiddingListener {
+    private class DefaultPreBiddingListener : PreBiddingListener {
         override suspend fun onPreBid(
             context: Context,
-            request: AmazonPublisherServicesAdapterPreBidRequest
+            request: AmazonPublisherServicesAdapterPreBidRequest,
         ): Result<AmazonPublisherServicesAdapterPreBidAdInfo> {
-
             val adRequest = DTBAdRequest()
             val isVideo = request.amazonSettings.isVideo
 
@@ -523,22 +548,23 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                         continuation.resume(result)
                     }
                 }
-                adRequest.loadAd(object : DTBAdCallback {
-                    override fun onFailure(adError: AdError) {
-                        PartnerLogController.log(
-                            BIDDER_INFO_FETCH_FAILED,
-                            "Placement: ${request.chartboostPlacement}. Error: ${adError.code}. Message: ${adError.message}"
-                        )
+                adRequest.loadAd(
+                    object : DTBAdCallback {
+                        override fun onFailure(adError: AdError) {
+                            PartnerLogController.log(
+                                BIDDER_INFO_FETCH_FAILED,
+                                "Placement: ${request.chartboostPlacement}. Error: ${adError.code}. Message: ${adError.message}",
+                            )
 
-                        resumeOnce(Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_PREBID_FAILURE_EXCEPTION)))
-                    }
+                            resumeOnce(Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_PREBID_FAILURE_EXCEPTION)))
+                        }
 
-                    override fun onSuccess(adResponse: DTBAdResponse) {
-                        resumeOnce(Result.success(AmazonPublisherServicesAdapterPreBidAdInfo(adResponse)))
-                    }
-                })
+                        override fun onSuccess(adResponse: DTBAdResponse) {
+                            resumeOnce(Result.success(AmazonPublisherServicesAdapterPreBidAdInfo(adResponse)))
+                        }
+                    },
+                )
             }
-
         }
 
         /**
@@ -561,12 +587,12 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                     adRequest.setSizes(
                         if (isVideo) {
                             (
-                                    DTBAdSize.DTBVideo(
-                                        amazonSettings.width,
-                                        amazonSettings.height,
-                                        amazonSettings.partnerPlacement,
-                                    )
-                                    )
+                                DTBAdSize.DTBVideo(
+                                    amazonSettings.width,
+                                    amazonSettings.height,
+                                    amazonSettings.partnerPlacement,
+                                )
+                            )
                         } else {
                             (DTBAdSize.DTBInterstitialAdSize(amazonSettings.partnerPlacement))
                         },
@@ -576,20 +602,20 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                     adRequest.setSizes(
                         if (isVideo) {
                             (
-                                    DTBAdSize.DTBVideo(
-                                        amazonSettings.width,
-                                        amazonSettings.height,
-                                        amazonSettings.partnerPlacement,
-                                    )
-                                    )
+                                DTBAdSize.DTBVideo(
+                                    amazonSettings.width,
+                                    amazonSettings.height,
+                                    amazonSettings.partnerPlacement,
+                                )
+                            )
                         } else {
                             (
-                                    DTBAdSize(
-                                        amazonSettings.width,
-                                        amazonSettings.height,
-                                        amazonSettings.partnerPlacement,
-                                    )
-                                    )
+                                DTBAdSize(
+                                    amazonSettings.width,
+                                    amazonSettings.height,
+                                    amazonSettings.partnerPlacement,
+                                )
+                            )
                         },
                     )
                 }
@@ -719,10 +745,11 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                 PartnerLogController.log(LOAD_FAILED, "No ad response found.")
                 return Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_LOAD_FAILURE_NO_FILL))
             }
-        val bidInfo = adResponse.bidInfo ?: run {
-            PartnerLogController.log(LOAD_FAILED, "No bid in ad response")
-            return Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_LOAD_FAILURE_NO_FILL))
-        }
+        val bidInfo =
+            adResponse.bidInfo ?: run {
+                PartnerLogController.log(LOAD_FAILED, "No bid in ad response")
+                return Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_LOAD_FAILURE_NO_FILL))
+            }
 
         return suspendCancellableCoroutine { continuation ->
             fun resumeOnce(result: Result<PartnerAd>) {
@@ -830,10 +857,11 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                 PartnerLogController.log(LOAD_FAILED, "No ad response found.")
                 return Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_LOAD_FAILURE_NO_FILL))
             }
-        val bidInfo = adResponse.bidInfo ?: run {
-            PartnerLogController.log(LOAD_FAILED, "No bid in ad response")
-            return Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_LOAD_FAILURE_NO_FILL))
-        }
+        val bidInfo =
+            adResponse.bidInfo ?: run {
+                PartnerLogController.log(LOAD_FAILED, "No bid in ad response")
+                return Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_LOAD_FAILURE_NO_FILL))
+            }
 
         return suspendCancellableCoroutine { continuation ->
             val listener = AdListener(WeakReference(continuation), request, partnerAdListener)
