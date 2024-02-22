@@ -16,4 +16,4 @@ pluginManagement {
 rootProject.name = "AmazonPublisherServicesAdapter"
 include(":AmazonPublisherServicesAdapter")
 include(":android-helium-sdk")
-include(":Helium")
+include(":ChartboostMediation")
