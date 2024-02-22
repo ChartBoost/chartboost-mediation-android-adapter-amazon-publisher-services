@@ -65,7 +65,7 @@ android {
 }
 
 dependencies {
-    "localImplementation"(project(":Helium"))
+    "localImplementation"(project(":ChartboostMediation"))
 
     // For external usage, please use the following production dependency.
     // You may choose a different release version.
