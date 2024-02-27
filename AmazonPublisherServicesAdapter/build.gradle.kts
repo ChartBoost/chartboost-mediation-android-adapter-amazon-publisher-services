@@ -35,7 +35,7 @@ android {
         minSdk = 21
         targetSdk = 33
         // If you touch the following line, don't forget to update scripts/get_rc_version.zsh
-        android.defaultConfig.versionName = System.getenv("VERSION_OVERRIDE") ?: "4.9.8.10.0"
+        android.defaultConfig.versionName = System.getenv("VERSION_OVERRIDE") ?: "4.9.9.2.0"
         buildConfigField("String", "CHARTBOOST_MEDIATION_APS_ADAPTER_VERSION", "\"${android.defaultConfig.versionName}\"")
 
         consumerProguardFiles("proguard-rules.pro")
@@ -72,7 +72,7 @@ dependencies {
     "remoteImplementation"("com.chartboost:chartboost-mediation-sdk:4.0.0")
 
     // Partner SDK
-    implementation("com.amazon.android:aps-sdk:9.8.10")
+    implementation("com.amazon.android:aps-sdk:9.9.2")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.4")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.4.1")
 
