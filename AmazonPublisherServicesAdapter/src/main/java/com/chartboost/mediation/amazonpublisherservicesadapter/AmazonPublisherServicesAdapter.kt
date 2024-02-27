@@ -7,6 +7,7 @@
 
 package com.chartboost.mediation.amazonpublisherservicesadapter
 
+import android.app.Activity
 import android.content.Context
 import android.view.View
 import com.amazon.device.ads.*
@@ -677,13 +678,13 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
     /**
      * Attempt to show the currently loaded APS ad.
      *
-     * @param context The current [Context]
+     * @param activity The current [Activity]
      * @param partnerAd The [PartnerAd] object containing the APS ad to be shown.
      *
      * @return Result.success(PartnerAd) if the ad was successfully shown, Result.failure(Exception) otherwise.
      */
     override suspend fun show(
-        context: Context,
+        activity: Activity,
         partnerAd: PartnerAd,
     ): Result<PartnerAd> {
         PartnerLogController.log(SHOW_STARTED)
