@@ -295,7 +295,8 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                     (partnerConfiguration.credentials as JsonObject).get(MANAGED_PREBIDDING_KEY)?.jsonPrimitive?.booleanOrNull
                         ?: false
 
-                if (shouldUseManagedPrebidding) {
+                if (shouldUseManagedPrebidding && preBiddingListener == null) {
+                    PartnerLogController.log(CUSTOM, "Using managed pre bidding.")
                     AdRegistration.getInstance(appKey, context)
 
                     AdRegistration.setAdNetworkInfo(DTBAdNetworkInfo(DTBAdNetwork.OTHER))
@@ -306,6 +307,8 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
 
                     // TODO: Remove once pipes have proven to function.
                     AdRegistration.enableLogging(true, DTBLogLevel.All)
+                } else {
+                    PartnerLogController.log(CUSTOM, "Not using managed pre bidding.")
                 }
 
                 val preBidArray =
