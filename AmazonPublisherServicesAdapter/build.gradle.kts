@@ -73,6 +73,7 @@ dependencies {
 
     // Partner SDK
     implementation("com.amazon.android:aps-sdk:9.9.3")
+    implementation("com.iabtcf:iabtcf-decoder:2.0.10")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.4")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.4.1")
 
