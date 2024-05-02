@@ -135,27 +135,6 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
 
     companion object {
         /**
-         * Test mode flag that can optionally be set to true to enable test ads. It can be set at any
-         * time and will take effect for the next ad request. Remember to set this to false in
-         * production.
-         */
-        public var testMode = false
-            set(value) {
-                field = value
-                AdRegistration.enableTesting(value)
-                PartnerLogController.log(
-                    CUSTOM,
-                    "- Amazon Publisher Services test mode is ${
-                        if (value) {
-                            "enabled. Remember to disable it before publishing."
-                        } else {
-                            "disabled."
-                        }
-                    }",
-                )
-            }
-
-        /**
          * A lambda to call for successful APS ad shows.
          */
         internal var onShowSuccess: () -> Unit = {}
@@ -220,6 +199,11 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
     }
 
     /**
+     * The Amazon Publisher Services adapter configuration.
+     */
+    override var configuration: PartnerAdapterConfiguration = AmazonPublisherServicesAdapterConfiguration
+
+    /**
      * String Chartboost placement name to the APS pre-bid ad info.
      */
     private val placementToPreBidAdInfoMap: MutableMap<String, AmazonPublisherServicesAdapterPreBidAdInfo?> =
@@ -240,39 +224,6 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
      * Indicate whether COPPA currently applies to the user.
      */
     private var isSubjectToCoppa = false
-
-    /**
-     * Get the APS SDK version.
-     */
-    override val partnerSdkVersion: String
-        get() = AdRegistration.getVersion()
-
-    /**
-     * Get the APS adapter version.
-     *
-     * You may version the adapter using any preferred convention, but it is recommended to apply the
-     * following format if the adapter will be published by Chartboost Mediation:
-     *
-     * Chartboost Mediation.Partner.Adapter
-     *
-     * "Chartboost Mediation" represents the Chartboost Mediation SDK’s major version that is compatible with this adapter. This must be 1 digit.
-     * "Partner" represents the partner SDK’s major.minor.patch.x (where x is optional) version that is compatible with this adapter. This can be 3-4 digits.
-     * "Adapter" represents this adapter’s version (starting with 0), which resets to 0 when the partner SDK’s version changes. This must be 1 digit.
-     */
-    override val adapterVersion: String
-        get() = BuildConfig.CHARTBOOST_MEDIATION_APS_ADAPTER_VERSION
-
-    /**
-     * Get the partner name for internal uses.
-     */
-    override val partnerId: String
-        get() = "amazon_aps"
-
-    /**
-     * Get the partner name for external uses.
-     */
-    override val partnerDisplayName: String
-        get() = "Amazon Publisher Services"
 
     /**
      * Initialize the Amazon Publisher Services SDK so that it is ready to request ads.
