@@ -270,7 +270,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                 Result.success(PartnerLogController.log(SETUP_SUCCEEDED))
             } ?: run {
             PartnerLogController.log(SETUP_FAILED, "Missing application ID.")
-            Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_INITIALIZATION_FAILURE_INVALID_CREDENTIALS))
+            Result.failure(ChartboostMediationAdException(ChartboostMediationError.InitializationError.InvalidCredentials))
         }
     }
 
@@ -505,7 +505,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                                 "Placement: ${request.chartboostPlacement}. Error: ${adError.code}. Message: ${adError.message}",
                             )
 
-                            resumeOnce(Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_PREBID_FAILURE_EXCEPTION)))
+                            resumeOnce(Result.failure(ChartboostMediationAdException(ChartboostMediationError.PrebidError.Exception)))
                         }
 
                         override fun onSuccess(adResponse: DTBAdResponse) {
@@ -607,7 +607,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
 
         if (isSubjectToCoppa) {
             PartnerLogController.log(LOAD_FAILED, "User subject to COPPA.")
-            return Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_LOAD_FAILURE_PRIVACY_OPT_IN))
+            return Result.failure(ChartboostMediationAdException(ChartboostMediationError.LoadError.PrivacyOptIn))
         }
 
         return when (request.format.key) {
@@ -615,7 +615,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
             AdFormat.INTERSTITIAL.key, AdFormat.REWARDED.key -> loadFullScreenAd(context, request, partnerAdListener)
             else -> {
                 PartnerLogController.log(LOAD_FAILED)
-                Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_LOAD_FAILURE_UNSUPPORTED_AD_FORMAT))
+                Result.failure(ChartboostMediationAdException(ChartboostMediationError.LoadError.UnsupportedAdFormat))
             }
         }
     }
@@ -636,7 +636,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
 
         if (isSubjectToCoppa) {
             PartnerLogController.log(SHOW_FAILED, "User subject to COPPA")
-            return Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_SHOW_FAILURE_PRIVACY_OPT_IN))
+            return Result.failure(ChartboostMediationAdException(ChartboostMediationError.ShowError.PrivacyOptIn))
         }
 
         return when (partnerAd.request.format.key) {
@@ -648,7 +648,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
             AdFormat.INTERSTITIAL.key, AdFormat.REWARDED.key -> showFullscreenAd(partnerAd)
             else -> {
                 PartnerLogController.log(SHOW_FAILED)
-                Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_SHOW_FAILURE_UNSUPPORTED_AD_FORMAT))
+                Result.failure(ChartboostMediationAdException(ChartboostMediationError.ShowError.UnsupportedAdFormat))
             }
         }
     }
@@ -692,12 +692,12 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                 placementToPreBidAdInfoMap.remove(placementName)
             } ?: run {
                 PartnerLogController.log(LOAD_FAILED, "No ad response found.")
-                return Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_LOAD_FAILURE_NO_FILL))
+                return Result.failure(ChartboostMediationAdException(ChartboostMediationError.LoadError.NoFill))
             }
         val bidInfo =
             adResponse.bidInfo ?: run {
                 PartnerLogController.log(LOAD_FAILED, "No bid in ad response")
-                return Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_LOAD_FAILURE_NO_FILL))
+                return Result.failure(ChartboostMediationAdException(ChartboostMediationError.LoadError.NoFill))
             }
 
         return suspendCancellableCoroutine { continuation ->
@@ -727,7 +727,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                         PartnerLogController.log(LOAD_FAILED)
                         resumeOnce(
                             Result.failure(
-                                ChartboostMediationAdException(ChartboostMediationError.CM_LOAD_FAILURE_UNKNOWN),
+                                ChartboostMediationAdException(ChartboostMediationError.LoadError.Unknown),
                             ),
                         )
                     }
@@ -804,12 +804,12 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                 placementToPreBidAdInfoMap.remove(placementName)
             } ?: run {
                 PartnerLogController.log(LOAD_FAILED, "No ad response found.")
-                return Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_LOAD_FAILURE_NO_FILL))
+                return Result.failure(ChartboostMediationAdException(ChartboostMediationError.LoadError.NoFill))
             }
         val bidInfo =
             adResponse.bidInfo ?: run {
                 PartnerLogController.log(LOAD_FAILED, "No bid in ad response")
-                return Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_LOAD_FAILURE_NO_FILL))
+                return Result.failure(ChartboostMediationAdException(ChartboostMediationError.LoadError.NoFill))
             }
 
         return suspendCancellableCoroutine { continuation ->
@@ -848,11 +848,11 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                 }
             } ?: run {
                 PartnerLogController.log(SHOW_FAILED, "Ad is not DTBAdInterstitial.")
-                Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_SHOW_FAILURE_WRONG_RESOURCE_TYPE))
+                Result.failure(ChartboostMediationAdException(ChartboostMediationError.ShowError.WrongResourceType))
             }
         } ?: run {
             PartnerLogController.log(SHOW_FAILED, "Ad is null.")
-            Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_SHOW_FAILURE_AD_NOT_FOUND))
+            Result.failure(ChartboostMediationAdException(ChartboostMediationError.ShowError.AdNotFound))
         }
     }
 
@@ -871,7 +871,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
             Result.success(partnerAd)
         } ?: run {
             PartnerLogController.log(INVALIDATE_FAILED, "Ad is null.")
-            Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_INVALIDATE_FAILURE_AD_NOT_FOUND))
+            Result.failure(ChartboostMediationAdException(ChartboostMediationError.InvalidateError.AdNotFound))
         }
     }
 }
@@ -919,7 +919,7 @@ private class AdListener(
             if (it.isActive) {
                 it.resume(
                     Result.failure(
-                        ChartboostMediationAdException(ChartboostMediationError.CM_LOAD_FAILURE_UNKNOWN),
+                        ChartboostMediationAdException(ChartboostMediationError.LoadError.Unknown),
                     ),
                 )
             }
