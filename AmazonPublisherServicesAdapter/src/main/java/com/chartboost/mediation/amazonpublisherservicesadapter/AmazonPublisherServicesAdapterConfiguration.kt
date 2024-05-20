@@ -45,14 +45,14 @@ object AmazonPublisherServicesAdapterConfiguration : PartnerAdapterConfiguration
             field = value
             AdRegistration.enableTesting(value)
             PartnerLogController.log(
-                    PartnerLogController.PartnerAdapterEvents.CUSTOM,
-                    "- Amazon Publisher Services test mode is ${
-                        if (value) {
-                            "enabled. Remember to disable it before publishing."
-                        } else {
-                            "disabled."
-                        }
-                    }",
+                PartnerLogController.PartnerAdapterEvents.CUSTOM,
+                "- Amazon Publisher Services test mode is ${
+                    if (value) {
+                        "enabled. Remember to disable it before publishing."
+                    } else {
+                        "disabled."
+                    }
+                }",
             )
         }
 
@@ -63,16 +63,16 @@ object AmazonPublisherServicesAdapterConfiguration : PartnerAdapterConfiguration
         set(value) {
             field = value
             PartnerLogController.log(
-                    PartnerLogController.PartnerAdapterEvents.CUSTOM,
-                    "- Amazon Publisher Services verbose logging is ${
-                        if (value) {
-                            AdRegistration.enableLogging(true, DTBLogLevel.All)
-                            "enabled."
-                        } else {
-                            AdRegistration.enableLogging(true, DTBLogLevel.Off)
-                            "disabled."
-                        }
-                    }",
+                PartnerLogController.PartnerAdapterEvents.CUSTOM,
+                "- Amazon Publisher Services verbose logging is ${
+                    if (value) {
+                        AdRegistration.enableLogging(true, DTBLogLevel.All)
+                        "enabled."
+                    } else {
+                        AdRegistration.enableLogging(true, DTBLogLevel.Off)
+                        "disabled."
+                    }
+                }",
             )
         }
 }
