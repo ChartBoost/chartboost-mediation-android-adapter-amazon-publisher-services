@@ -16,21 +16,14 @@ import com.chartboost.chartboostmediationsdk.utils.PartnerLogController
 import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.BIDDER_INFO_FETCH_FAILED
 import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.BIDDER_INFO_FETCH_STARTED
 import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.BIDDER_INFO_FETCH_SUCCEEDED
-import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.CCPA_CONSENT_DENIED
-import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.CCPA_CONSENT_GRANTED
-import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.COPPA_NOT_SUBJECT
-import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.COPPA_SUBJECT
-import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.CUSTOM
 import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.DID_CLICK
 import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.DID_DISMISS
 import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.DID_REWARD
 import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.DID_TRACK_IMPRESSION
-import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.GDPR_APPLICABLE
 import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.GDPR_CONSENT_DENIED
 import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.GDPR_CONSENT_GRANTED
 import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.GDPR_CONSENT_UNKNOWN
 import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.GDPR_NOT_APPLICABLE
-import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.GDPR_UNKNOWN
 import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.INVALIDATE_FAILED
 import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.INVALIDATE_STARTED
 import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.INVALIDATE_SUCCEEDED
@@ -43,6 +36,12 @@ import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerA
 import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.SHOW_FAILED
 import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.SHOW_STARTED
 import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.SHOW_SUCCEEDED
+import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.USER_IS_NOT_UNDERAGE
+import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.USER_IS_UNDERAGE
+import com.chartboost.core.consent.ConsentKey
+import com.chartboost.core.consent.ConsentKeys
+import com.chartboost.core.consent.ConsentValue
+import com.chartboost.core.consent.ConsentValues
 import com.chartboost.mediation.amazonpublisherservicesadapter.AmazonPublisherServicesAdapter.Companion.onShowSuccess
 import kotlinx.coroutines.*
 import kotlinx.coroutines.Dispatchers.Main
@@ -120,17 +119,21 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
          */
         val chartboostPlacement: String,
         /**
-         * The ad format of this pre bid request.
+         * The ad format of this pre bid request. See [PartnerAdFormats] for possible values.
          */
-        val format: AdFormat,
+        val format: PartnerAdFormat,
         /**
          * Amazon adapter specific settings to do a pre bid request.
          */
         val amazonSettings: AmazonSettings,
         /**
-         * The CCPA US Privacy String. This is only used by the internal listener.
+         * A Map of key-value pairs for ad targetting.
          */
-        internal val ccpaPrivacyString: String?,
+        val keywords: Map<String, String>,
+        /**
+         * The US Privacy String. This is only used by the internal listener.
+         */
+        internal val usPrivacyString: String?,
     )
 
     companion object {
@@ -150,9 +153,9 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
         var preBiddingListener: PreBiddingListener? = null
 
         /**
-         * Key for setting the CCPA privacy.
+         * Key for setting the US Privacy String.
          */
-        private const val CCPA_PRIVACY_KEY = "us_privacy"
+        private const val US_PRIVACY_KEY = "us_privacy"
 
         /**
          * Key for parsing the APS SDK application ID.
@@ -216,14 +219,14 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
     private val placementToAmazonSettings: MutableMap<String, AmazonSettings> = mutableMapOf()
 
     /**
-     * Indicate whether the user has given CCPA consent.
+     * The US Privacy String.
      */
-    private var ccpaPrivacyString: String? = null
+    private var usPrivacyString: String? = null
 
     /**
-     * Indicate whether COPPA currently applies to the user.
+     * Indicate whether the user is underage
      */
-    private var isSubjectToCoppa = false
+    private var isUserUnderage = false
 
     /**
      * Initialize the Amazon Publisher Services SDK so that it is ready to request ads.
@@ -236,7 +239,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
     override suspend fun setUp(
         context: Context,
         partnerConfiguration: PartnerConfiguration,
-    ): Result<Unit> {
+    ): Result<Map<String, Any>> {
         PartnerLogController.log(SETUP_STARTED)
         return Json.decodeFromJsonElement<String>(
             (partnerConfiguration.credentials as JsonObject).getValue(APS_APPLICATION_ID_KEY),
@@ -273,7 +276,8 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                     }
                 }
 
-                Result.success(PartnerLogController.log(SETUP_SUCCEEDED))
+                PartnerLogController.log(SETUP_SUCCEEDED)
+                Result.success(emptyMap())
             } ?: run {
             PartnerLogController.log(SETUP_FAILED, "Missing application ID.")
             Result.failure(ChartboostMediationAdException(ChartboostMediationError.InitializationError.InvalidCredentials))
@@ -317,113 +321,47 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
     }
 
     /**
-     * Notify the Amazon Publisher Services SDK of the GDPR applicability and consent status.
-     *
-     * @param context The current [Context].
-     * @param applies Whether GDPR applies or not.
-     * @param gdprConsentStatus The user's GDPR consent status.
-     */
-    override fun setGdpr(
-        context: Context,
-        applies: Boolean?,
-        gdprConsentStatus: GdprConsentStatus,
-    ) {
-        PartnerLogController.log(
-            when (applies) {
-                true -> GDPR_APPLICABLE
-                false -> GDPR_NOT_APPLICABLE
-                else -> GDPR_UNKNOWN
-            },
-        )
-
-        PartnerLogController.log(
-            when (gdprConsentStatus) {
-                GdprConsentStatus.GDPR_CONSENT_UNKNOWN -> GDPR_CONSENT_UNKNOWN
-                GdprConsentStatus.GDPR_CONSENT_GRANTED -> GDPR_CONSENT_GRANTED
-                GdprConsentStatus.GDPR_CONSENT_DENIED -> GDPR_CONSENT_DENIED
-            },
-        )
-
-        AdRegistration.setCMPFlavor(AdRegistration.CMPFlavor.CMP_NOT_DEFINED)
-
-        if (applies == true) {
-            AdRegistration.setConsentStatus(
-                when (gdprConsentStatus) {
-                    GdprConsentStatus.GDPR_CONSENT_UNKNOWN -> AdRegistration.ConsentStatus.UNKNOWN
-                    GdprConsentStatus.GDPR_CONSENT_GRANTED -> AdRegistration.ConsentStatus.EXPLICIT_YES
-                    GdprConsentStatus.GDPR_CONSENT_DENIED -> AdRegistration.ConsentStatus.EXPLICIT_NO
-                },
-            )
-        } else {
-            AdRegistration.setConsentStatus(AdRegistration.ConsentStatus.CONSENT_NOT_DEFINED)
-        }
-    }
-
-    /**
-     * Notify APS of the CCPA compliance.
-     *
-     * @param context The current [Context]
-     * @param hasGrantedCcpaConsent The user's current CCPA consent status.
-     * @param privacyString The CCPA privacy string.
-     */
-    override fun setCcpaConsent(
-        context: Context,
-        hasGrantedCcpaConsent: Boolean,
-        privacyString: String,
-    ) {
-        PartnerLogController.log(
-            if (hasGrantedCcpaConsent) {
-                CCPA_CONSENT_GRANTED
-            } else {
-                CCPA_CONSENT_DENIED
-            },
-        )
-
-        ccpaPrivacyString = privacyString
-    }
-
-    /**
      * Notify APS of the COPPA subjectivity.
      *
      * @param context The current [Context]
-     * @param isSubjectToCoppa Whether the user is subject to COPPA.
+     * @param isUserUnderage Whether the user is subject to COPPA.
      */
-    override fun setUserSubjectToCoppa(
+    override fun setIsUserUnderage(
         context: Context,
-        isSubjectToCoppa: Boolean,
+        isUserUnderage: Boolean,
     ) {
         PartnerLogController.log(
-            if (isSubjectToCoppa) {
-                COPPA_SUBJECT
+            if (isUserUnderage) {
+                USER_IS_UNDERAGE
             } else {
-                COPPA_NOT_SUBJECT
+                USER_IS_NOT_UNDERAGE
             },
         )
 
-        this.isSubjectToCoppa = isSubjectToCoppa
+        this.isUserUnderage = isUserUnderage
     }
 
     /**
      * Get a bid token if network bidding is supported.
      *
      * @param context The current [Context].
-     * @param request The [PreBidRequest] instance containing relevant data for the current bid request.
+     * @param request The [PartnerAdPreBidRequest] instance containing relevant data for the current bid request.
      *
      * @return A Map of biddable token Strings.
      */
     override suspend fun fetchBidderInformation(
         context: Context,
-        request: PreBidRequest,
-    ): Map<String, String> {
+        request: PartnerAdPreBidRequest,
+    ): Result<Map<String, String>> {
         PartnerLogController.log(BIDDER_INFO_FETCH_STARTED)
 
-        val placement = request.chartboostPlacement
+        val placement = request.mediationPlacement
         withContext(Main) {
             placementToPreBidAdInfoMap[placement]
         }?.let { adInfo ->
             adInfo.pricePoint?.let {
                 if (it.isNotEmpty()) {
-                    return mutableMapOf(placement to it)
+                    return Result.success(mutableMapOf(placement to it))
                 }
             }
         }
@@ -436,23 +374,23 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                     BIDDER_INFO_FETCH_FAILED,
                     "Could not find amazonSettings for this placement.",
                 )
-                return mapOf()
+                return Result.success(mapOf())
             }
 
         return suspendCancellableCoroutine { continuation ->
-            fun resumeOnce(result: Map<String, String>) {
+            fun resumeOnce(result: Result<Map<String, String>>) {
                 if (continuation.isActive) {
                     continuation.resume(result)
                 }
             }
 
             if (amazonSettings.partnerPlacement.isEmpty()) {
-                resumeOnce(mapOf())
+                resumeOnce(Result.success(mapOf()))
                 return@suspendCancellableCoroutine
             }
 
-            if (isSubjectToCoppa) {
-                resumeOnce(mapOf())
+            if (isUserUnderage) {
+                resumeOnce(Result.success(mapOf()))
                 return@suspendCancellableCoroutine
             }
 
@@ -460,27 +398,28 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                 preBiddingListener?.onPreBid(
                     context,
                     AmazonPublisherServicesAdapterPreBidRequest(
-                        chartboostPlacement = request.chartboostPlacement,
+                        chartboostPlacement = request.mediationPlacement,
                         format = request.format,
                         amazonSettings = amazonSettings,
-                        ccpaPrivacyString = ccpaPrivacyString,
+                        keywords = request.keywords,
+                        usPrivacyString = usPrivacyString,
                     ),
                 )?.fold({ adInfo ->
                     placementToPreBidAdInfoMap[placement] = adInfo
 
                     adInfo.pricePoint?.let { pricePoint ->
                         PartnerLogController.log(BIDDER_INFO_FETCH_SUCCEEDED)
-                        resumeOnce(mutableMapOf(placement to pricePoint))
+                        resumeOnce(Result.success(mutableMapOf(placement to pricePoint)))
                     } ?: run {
                         PartnerLogController.log(BIDDER_INFO_FETCH_FAILED, "Placement: $placement.")
-                        resumeOnce(mapOf())
+                        resumeOnce(Result.success(mapOf()))
                     }
                 }, {
                     placementToPreBidAdInfoMap.remove(placement)
-                    resumeOnce(mapOf())
+                    resumeOnce(Result.success(mapOf()))
                 }) ?: run {
                     PartnerLogController.log(BIDDER_INFO_FETCH_FAILED, "Placement: $placement.")
-                    resumeOnce(mapOf())
+                    resumeOnce(Result.success(mapOf()))
                 }
             }
         }
@@ -495,7 +434,10 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
             val isVideo = request.amazonSettings.isVideo
 
             buildAdRequestSize(request.format, adRequest, isVideo, request.amazonSettings)
-            buildCcpaPrivacy(adRequest, request.ccpaPrivacyString)
+            buildCcpaPrivacy(adRequest, request.usPrivacyString)
+            request.keywords.forEach {
+                adRequest.putCustomTarget(it.key, it.value)
+            }
 
             return suspendCancellableCoroutine { continuation ->
                 fun resumeOnce(result: Result<AmazonPublisherServicesAdapterPreBidAdInfo>) {
@@ -526,19 +468,19 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
          * Builds a [DTBAdSize] object based on the ad format, whether it is a [DTBAdSize.DTBVideo] and
          * passes it to the [DTBAdRequest] ad request.
          *
-         * @param format The current [AdFormat].
+         * @param format The current [PartnerAdFormat].
          * @param adRequest The current [DTBAdRequest].
          * @param isVideo Whether the current ad request is a video or not.
          * @param amazonSettings Relevant data for the current bid request.
          */
         private fun buildAdRequestSize(
-            format: AdFormat,
+            format: PartnerAdFormat,
             adRequest: DTBAdRequest,
             isVideo: Boolean,
             amazonSettings: AmazonSettings,
         ) {
             return when (format) {
-                AdFormat.INTERSTITIAL, AdFormat.REWARDED -> {
+                PartnerAdFormats.INTERSTITIAL, PartnerAdFormats.REWARDED -> {
                     adRequest.setSizes(
                         if (isVideo) {
                             (
@@ -581,15 +523,15 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
          * Attaches the CCPA privacy setting to the APS request.
          *
          * @param adRequest A [DTBAdRequest] to set the privacy setting for the current DTBAdRequest.
-         * @param ccpaPrivacyString the privacy string that will be set for the current DTBadRequest.
+         * @param usPrivacyString the privacy string that will be set for the current DTBadRequest.
          */
         private fun buildCcpaPrivacy(
             adRequest: DTBAdRequest,
-            ccpaPrivacyString: String?,
+            usPrivacyString: String?,
         ) {
             adRequest.apply {
-                ccpaPrivacyString?.let {
-                    putCustomTarget(CCPA_PRIVACY_KEY, it)
+                usPrivacyString?.let {
+                    putCustomTarget(US_PRIVACY_KEY, it)
                 }
             }
         }
@@ -611,14 +553,14 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
     ): Result<PartnerAd> {
         PartnerLogController.log(LOAD_STARTED)
 
-        if (isSubjectToCoppa) {
+        if (isUserUnderage) {
             PartnerLogController.log(LOAD_FAILED, "User subject to COPPA.")
             return Result.failure(ChartboostMediationAdException(ChartboostMediationError.LoadError.PrivacyOptIn))
         }
 
-        return when (request.format.key) {
-            AdFormat.BANNER.key, "adaptive_banner" -> loadBannerAd(context, request, partnerAdListener)
-            AdFormat.INTERSTITIAL.key, AdFormat.REWARDED.key -> loadFullScreenAd(context, request, partnerAdListener)
+        return when (request.format) {
+            PartnerAdFormats.BANNER -> loadBannerAd(context, request, partnerAdListener)
+            PartnerAdFormats.INTERSTITIAL, PartnerAdFormats.REWARDED -> loadFullScreenAd(context, request, partnerAdListener)
             else -> {
                 PartnerLogController.log(LOAD_FAILED)
                 Result.failure(ChartboostMediationAdException(ChartboostMediationError.LoadError.UnsupportedAdFormat))
@@ -640,18 +582,18 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
     ): Result<PartnerAd> {
         PartnerLogController.log(SHOW_STARTED)
 
-        if (isSubjectToCoppa) {
+        if (isUserUnderage) {
             PartnerLogController.log(SHOW_FAILED, "User subject to COPPA")
             return Result.failure(ChartboostMediationAdException(ChartboostMediationError.ShowError.PrivacyOptIn))
         }
 
-        return when (partnerAd.request.format.key) {
-            AdFormat.BANNER.key, "adaptive_banner" -> {
+        return when (partnerAd.request.format) {
+            PartnerAdFormats.BANNER -> {
                 // Banner ads do not have a separate "show" mechanism.
                 PartnerLogController.log(SHOW_SUCCEEDED)
                 Result.success(partnerAd)
             }
-            AdFormat.INTERSTITIAL.key, AdFormat.REWARDED.key -> showFullscreenAd(partnerAd)
+            PartnerAdFormats.INTERSTITIAL, PartnerAdFormats.REWARDED -> showFullscreenAd(partnerAd)
             else -> {
                 PartnerLogController.log(SHOW_FAILED)
                 Result.failure(ChartboostMediationAdException(ChartboostMediationError.ShowError.UnsupportedAdFormat))
@@ -669,13 +611,46 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
     override suspend fun invalidate(partnerAd: PartnerAd): Result<PartnerAd> {
         PartnerLogController.log(INVALIDATE_STARTED)
 
-        return when (partnerAd.request.format.key) {
-            AdFormat.BANNER.key, "adaptive_banner" -> destroyBannerAd(partnerAd)
+        return when (partnerAd.request.format) {
+            PartnerAdFormats.BANNER -> destroyBannerAd(partnerAd)
             else -> {
                 PartnerLogController.log(INVALIDATE_SUCCEEDED)
                 Result.success(partnerAd)
             }
         }
+    }
+
+    override fun setConsents(
+        context: Context,
+        consents: Map<ConsentKey, ConsentValue>,
+        modifiedKeys: Set<ConsentKey>
+    ) {
+        consents[ConsentKeys.GDPR_CONSENT_GIVEN]?.let {
+            if (it == ConsentValues.DOES_NOT_APPLY) {
+                PartnerLogController.log(GDPR_NOT_APPLICABLE)
+                AdRegistration.setConsentStatus(AdRegistration.ConsentStatus.CONSENT_NOT_DEFINED)
+                return@let
+            }
+
+            PartnerLogController.log(
+                when (it) {
+                    ConsentValues.GRANTED -> GDPR_CONSENT_GRANTED
+                    ConsentValues.DENIED -> GDPR_CONSENT_DENIED
+                    else -> GDPR_CONSENT_UNKNOWN
+                },
+            )
+
+            AdRegistration.setCMPFlavor(AdRegistration.CMPFlavor.CMP_NOT_DEFINED)
+
+            AdRegistration.setConsentStatus(
+                when (it) {
+                    ConsentValues.GRANTED -> AdRegistration.ConsentStatus.EXPLICIT_YES
+                    ConsentValues.DENIED -> AdRegistration.ConsentStatus.EXPLICIT_NO
+                    else -> AdRegistration.ConsentStatus.UNKNOWN
+                })
+            }
+
+        usPrivacyString = consents[ConsentKeys.USP]
     }
 
     /**
@@ -1002,7 +977,7 @@ private class AdListener(
 
     override fun onVideoCompleted(adView: View?) {
         CoroutineScope(Main).launch {
-            if (request.format == AdFormat.REWARDED) {
+            if (request.format == PartnerAdFormats.REWARDED) {
                 PartnerLogController.log(DID_REWARD)
                 listener?.onPartnerAdRewarded(
                     PartnerAd(
