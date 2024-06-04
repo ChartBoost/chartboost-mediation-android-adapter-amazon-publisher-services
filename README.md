@@ -4,7 +4,7 @@ The Chartboost Mediation Amazon Publisher Services adapter mediates Amazon Publi
 
 ## Minimum Requirements
 
-| Plugin                   | Version |
+| Plugin                   | Version |[CHANGELOG.md](CHANGELOG.md)
 | ------------------------ |---------|
 | Chartboost Mediation SDK | 5.0.0+  |
 | Android API              | 21+     |
