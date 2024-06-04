@@ -617,7 +617,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
     override fun setConsents(
         context: Context,
         consents: Map<ConsentKey, ConsentValue>,
-        modifiedKeys: Set<ConsentKey>
+        modifiedKeys: Set<ConsentKey>,
     ) {
         consents[ConsentKeys.GDPR_CONSENT_GIVEN]?.let {
             if (it == ConsentValues.DOES_NOT_APPLY) {
@@ -641,8 +641,9 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                     ConsentValues.GRANTED -> AdRegistration.ConsentStatus.EXPLICIT_YES
                     ConsentValues.DENIED -> AdRegistration.ConsentStatus.EXPLICIT_NO
                     else -> AdRegistration.ConsentStatus.UNKNOWN
-                })
-            }
+                },
+            )
+        }
 
         usPrivacyString = consents[ConsentKeys.USP]
     }
