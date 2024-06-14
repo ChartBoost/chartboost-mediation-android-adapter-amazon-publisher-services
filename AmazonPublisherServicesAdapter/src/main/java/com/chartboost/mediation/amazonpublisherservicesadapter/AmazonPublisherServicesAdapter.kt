@@ -397,7 +397,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                 preBiddingListener?.onPreBid(
                     context,
                     AmazonPublisherServicesAdapterPreBidRequest(
-                        chartboostPlacement = request.mediationPlacement,
+                        mediationPlacement = request.mediationPlacement,
                         format = request.format,
                         amazonSettings = amazonSettings,
                         keywords = request.keywords,
@@ -449,7 +449,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                         override fun onFailure(adError: AdError) {
                             PartnerLogController.log(
                                 BIDDER_INFO_FETCH_FAILED,
-                                "Placement: ${request.chartboostPlacement}. Error: ${adError.code}. Message: ${adError.message}",
+                                "Placement: ${request.mediationPlacement}. Error: ${adError.code}. Message: ${adError.message}",
                             )
 
                             resumeOnce(Result.failure(ChartboostMediationAdException(ChartboostMediationError.PrebidError.Exception)))
