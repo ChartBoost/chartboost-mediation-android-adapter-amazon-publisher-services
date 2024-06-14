@@ -285,7 +285,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
 
     private fun addPrebid(preBid: JsonObject?) {
         preBid?.apply {
-            val chartboostPlacement =
+            val mediationPlacement =
                 get(CHARTBOOST_PLACEMENT_KEY)?.let {
                     Json.decodeFromJsonElement(it)
                 } ?: ""
@@ -309,7 +309,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                     Json.decodeFromJsonElement(it)
                 } ?: false
 
-            placementToAmazonSettings[chartboostPlacement] =
+            placementToAmazonSettings[mediationPlacement] =
                 AmazonSettings(
                     partnerPlacement = partnerPlacement,
                     width = width,
@@ -667,7 +667,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
         request: PartnerAdLoadRequest,
         partnerAdListener: PartnerAdListener,
     ): Result<PartnerAd> {
-        val placementName = request.chartboostPlacement
+        val placementName = request.mediationPlacement
         val adResponse =
             withContext(Main) {
                 placementToPreBidAdInfoMap.remove(placementName)
@@ -779,7 +779,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
         request: PartnerAdLoadRequest,
         partnerAdListener: PartnerAdListener,
     ): Result<PartnerAd> {
-        val placementName = request.chartboostPlacement
+        val placementName = request.mediationPlacement
         val adResponse =
             withContext(Main) {
                 placementToPreBidAdInfoMap.remove(placementName)
