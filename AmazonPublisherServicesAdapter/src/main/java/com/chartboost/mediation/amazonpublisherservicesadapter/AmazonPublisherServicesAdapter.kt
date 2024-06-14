@@ -9,6 +9,7 @@ package com.chartboost.mediation.amazonpublisherservicesadapter
 
 import android.app.Activity
 import android.content.Context
+import android.util.Size
 import android.view.View
 import com.amazon.device.ads.*
 import com.chartboost.chartboostmediationsdk.domain.*
@@ -115,9 +116,9 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
      */
     data class AmazonPublisherServicesAdapterPreBidRequest(
         /**
-         * The Chartboost placement name.
+         * The Chartboost mediation placement name.
          */
-        val chartboostPlacement: String,
+        val mediationPlacement: String,
         /**
          * The ad format of this pre bid request. See [PartnerAdFormats] for possible values.
          */
@@ -134,6 +135,10 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
          * The US Privacy String. This is only used by the internal listener.
          */
         internal val usPrivacyString: String?,
+        /**
+         * The size of the banner being requested.
+         */
+        internal val bannerSize: Size? = null,
     )
 
     companion object {
