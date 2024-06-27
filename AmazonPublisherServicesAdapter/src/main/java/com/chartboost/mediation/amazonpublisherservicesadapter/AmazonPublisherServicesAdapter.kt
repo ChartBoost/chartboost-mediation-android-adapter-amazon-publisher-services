@@ -9,6 +9,7 @@ package com.chartboost.mediation.amazonpublisherservicesadapter
 
 import android.app.Activity
 import android.content.Context
+import android.util.Size
 import android.view.View
 import com.amazon.device.ads.*
 import com.chartboost.chartboostmediationsdk.domain.*
@@ -115,9 +116,9 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
      */
     data class AmazonPublisherServicesAdapterPreBidRequest(
         /**
-         * The Chartboost placement name.
+         * The Chartboost mediation placement name.
          */
-        val chartboostPlacement: String,
+        val mediationPlacement: String,
         /**
          * The ad format of this pre bid request. See [PartnerAdFormats] for possible values.
          */
@@ -134,6 +135,10 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
          * The US Privacy String. This is only used by the internal listener.
          */
         internal val usPrivacyString: String?,
+        /**
+         * The size of the banner being requested.
+         */
+        internal val bannerSize: Size? = null,
     )
 
     companion object {
@@ -286,7 +291,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
 
     private fun addPrebid(preBid: JsonObject?) {
         preBid?.apply {
-            val chartboostPlacement =
+            val mediationPlacement =
                 get(CHARTBOOST_PLACEMENT_KEY)?.let {
                     Json.decodeFromJsonElement(it)
                 } ?: ""
@@ -310,7 +315,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                     Json.decodeFromJsonElement(it)
                 } ?: false
 
-            placementToAmazonSettings[chartboostPlacement] =
+            placementToAmazonSettings[mediationPlacement] =
                 AmazonSettings(
                     partnerPlacement = partnerPlacement,
                     width = width,
@@ -398,7 +403,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                 preBiddingListener?.onPreBid(
                     context,
                     AmazonPublisherServicesAdapterPreBidRequest(
-                        chartboostPlacement = request.mediationPlacement,
+                        mediationPlacement = request.mediationPlacement,
                         format = request.format,
                         amazonSettings = amazonSettings,
                         keywords = request.keywords,
@@ -450,7 +455,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                         override fun onFailure(adError: AdError) {
                             PartnerLogController.log(
                                 BIDDER_INFO_FETCH_FAILED,
-                                "Placement: ${request.chartboostPlacement}. Error: ${adError.code}. Message: ${adError.message}",
+                                "Placement: ${request.mediationPlacement}. Error: ${adError.code}. Message: ${adError.message}",
                             )
 
                             resumeOnce(Result.failure(ChartboostMediationAdException(ChartboostMediationError.PrebidError.Exception)))
@@ -668,7 +673,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
         request: PartnerAdLoadRequest,
         partnerAdListener: PartnerAdListener,
     ): Result<PartnerAd> {
-        val placementName = request.chartboostPlacement
+        val placementName = request.mediationPlacement
         val adResponse =
             withContext(Main) {
                 placementToPreBidAdInfoMap.remove(placementName)
@@ -780,7 +785,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
         request: PartnerAdLoadRequest,
         partnerAdListener: PartnerAdListener,
     ): Result<PartnerAd> {
-        val placementName = request.chartboostPlacement
+        val placementName = request.mediationPlacement
         val adResponse =
             withContext(Main) {
                 placementToPreBidAdInfoMap.remove(placementName)
