@@ -132,13 +132,13 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
          */
         val keywords: Map<String, String>,
         /**
+         * The size of the banner being requested.
+         */
+        val bannerSize: Size? = null,
+        /**
          * The US Privacy String. This is only used by the internal listener.
          */
         internal val usPrivacyString: String?,
-        /**
-         * The size of the banner being requested.
-         */
-        internal val bannerSize: Size? = null,
     )
 
     companion object {
