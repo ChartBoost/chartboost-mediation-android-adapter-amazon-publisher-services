@@ -9,7 +9,6 @@ package com.chartboost.mediation.amazonpublisherservicesadapter
 
 import android.app.Activity
 import android.content.Context
-import android.util.Size
 import android.view.View
 import com.amazon.device.ads.*
 import com.chartboost.chartboostmediationsdk.domain.*
@@ -134,7 +133,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
         /**
          * The size of the banner being requested.
          */
-        val bannerSize: Size? = null,
+        val bannerSize: PartnerBannerSize? = null,
         /**
          * The US Privacy String. This is only used by the internal listener.
          */
@@ -401,6 +400,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                         format = request.format,
                         amazonSettings = amazonSettings,
                         keywords = request.keywords,
+                        bannerSize = request.bannerSize,
                         usPrivacyString = usPrivacyString,
                     ),
                 )?.fold({ adInfo ->
