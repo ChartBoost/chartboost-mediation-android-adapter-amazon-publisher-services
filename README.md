@@ -4,7 +4,7 @@ The Chartboost Mediation Amazon Publisher Services adapter mediates Amazon Publi
 
 ## Minimum Requirements
 
-| Plugin                   | Version |[CHANGELOG.md](CHANGELOG.md)
+| Plugin                   | Version |
 | ------------------------ |---------|
 | Chartboost Mediation SDK | 5.0.0+  |
 | Android API              | 21+     |
@@ -13,7 +13,7 @@ The Chartboost Mediation Amazon Publisher Services adapter mediates Amazon Publi
 
 In your `build.gradle`, add the following entry:
 ```
-    implementation "com.chartboost:chartboost-mediation-adapter-amazon-publisher-services:5.9.10.2.0"
+    implementation "com.chartboost:chartboost-mediation-adapter-amazon-publisher-services:5.9.10.1.0"
 ```
 
 ## Contributions
