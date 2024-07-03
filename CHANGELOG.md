@@ -25,7 +25,6 @@ Adapters are compatible with any Chartboost Mediation SDK version within that ma
 
 ### 4.9.8.10.1
 - If a `PreBiddingListener` is set before initialization, Amazon Publisher Services will not be initialized and the default `PreBiddingListener` will not be set.
->>>>>>> main
 
 ### 4.9.8.10.0
 - This version of the adapter has been certified with Amazon Publisher Services SDK 9.8.10.
