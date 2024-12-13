@@ -36,11 +36,11 @@ repositories {
 
 android {
     namespace = "com.chartboost.mediation.amazonpublisherservicesadapter"
-    compileSdk = 34
+    compileSdk = 33
 
     defaultConfig {
         minSdk = 21
-        targetSdk = 34
+        targetSdk = 33
         // If you touch the following line, don't forget to update scripts/get_rc_version.zsh
         android.defaultConfig.versionName = System.getenv("VERSION_OVERRIDE") ?: "5.9.10.2.0"
         buildConfigField("String", "CHARTBOOST_MEDIATION_APS_ADAPTER_VERSION", "\"${android.defaultConfig.versionName}\"")
@@ -95,9 +95,6 @@ dependencies {
     implementation("com.iabtcf:iabtcf-decoder:2.0.10")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.4")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.4.1")
-
-    // Partner SDK Dependencies
-    implementation("androidx.appcompat:appcompat:1.5.1")
 }
 
 artifactory {
