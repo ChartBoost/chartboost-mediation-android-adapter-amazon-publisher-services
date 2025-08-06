@@ -445,7 +445,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
             context: Context,
             request: AmazonPublisherServicesAdapterPreBidRequest,
         ): Result<AmazonPublisherServicesAdapterPreBidAdInfo> {
-            val adRequest =  DTBAdRequest(context, DTBAdNetworkInfo(DTBAdNetwork.OTHER))
+            val adRequest = DTBAdRequest(context, DTBAdNetworkInfo(DTBAdNetwork.OTHER))
             val isVideo = request.amazonSettings.isVideo
 
             buildAdRequestSize(request.format, adRequest, isVideo, request.amazonSettings)
