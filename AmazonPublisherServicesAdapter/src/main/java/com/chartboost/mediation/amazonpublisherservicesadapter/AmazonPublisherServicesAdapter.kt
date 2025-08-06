@@ -269,7 +269,6 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
                     PartnerLogController.log(CUSTOM, "Using managed pre bidding.")
                     AdRegistration.getInstance(appKey, context)
 
-                    AdRegistration.setAdNetworkInfo(DTBAdNetworkInfo(DTBAdNetwork.OTHER))
                     AdRegistration.setMRAIDSupportedVersions(arrayOf("1.0", "2.0", "3.0"))
                     AdRegistration.setMRAIDPolicy(MRAIDPolicy.CUSTOM)
 
@@ -446,7 +445,7 @@ class AmazonPublisherServicesAdapter : PartnerAdapter {
             context: Context,
             request: AmazonPublisherServicesAdapterPreBidRequest,
         ): Result<AmazonPublisherServicesAdapterPreBidAdInfo> {
-            val adRequest = DTBAdRequest()
+            val adRequest =  DTBAdRequest(context, DTBAdNetworkInfo(DTBAdNetwork.OTHER))
             val isVideo = request.amazonSettings.isVideo
 
             buildAdRequestSize(request.format, adRequest, isVideo, request.amazonSettings)
