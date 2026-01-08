@@ -13,7 +13,7 @@ The Chartboost Mediation Amazon Publisher Services adapter mediates Amazon Publi
 
 In your `build.gradle`, add the following entry:
 ```
-    implementation "com.chartboost:chartboost-mediation-adapter-amazon-publisher-services:5.11.0.2.0"
+    implementation "com.chartboost:chartboost-mediation-adapter-amazon-publisher-services:5.11.0.4.0"
 ```
 
 ## Contributions
