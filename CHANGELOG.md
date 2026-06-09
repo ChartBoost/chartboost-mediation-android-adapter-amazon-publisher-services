@@ -14,6 +14,12 @@ All official releases can be found on this repository's [releases page](https://
 ### 5.11.3.0.0
 - This version of the adapter has been certified with Amazon Publisher Services SDK 11.3.0.
 
+### 5.11.2.1.0
+- This version of the adapter has been certified with Amazon Publisher Services SDK 11.2.1.
+
+### 5.11.2.0.0
+- This version of the adapter has been certified with Amazon Publisher Services SDK 11.2.0.
+
 ### 5.11.1.2.0
 - This version of the adapter has been certified with Amazon Publisher Services SDK 11.1.2.
 
