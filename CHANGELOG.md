@@ -11,6 +11,9 @@ All official releases can be found on this repository's [releases page](https://
 
 ## Mediation 5
 
+### 5.12.0.4.0
+- This version of the adapter has been certified with Amazon Publisher Services SDK 12.0.4.
+
 ### 5.12.0.3.0
 - This version of the adapter has been certified with Amazon Publisher Services SDK 12.0.3.
 
